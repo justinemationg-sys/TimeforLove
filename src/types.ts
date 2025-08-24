@@ -79,21 +79,25 @@ export interface StudySession {
 
 /**
  * IMPORTANT: Skipped sessions should be handled consistently across the application:
- * 
+ *
  * 1. Skipped sessions should NOT be included in:
- *    - Total study hours calculations
+ *    - Active session lists (StudyPlanView, Calendar)
  *    - Session combination logic
- *    - Optimization suggestions
- *    - Calendar display (hidden)
- *    - Task completion calculations
- * 
- * 2. Skipped sessions should be preserved in:
- *    - Study plan data structure (for potential unskip functionality)
+ *    - RAF timer loops or active scheduling
+ *
+ * 2. Skipped sessions SHOULD be included in:
+ *    - Task progress calculations (reduces remaining estimated hours)
+ *    - Study plan regeneration scheduling totals (prevents redistribution)
+ *    - Study plan data structure (for audit trail and consistency)
  *    - Session numbering (to maintain consistency)
- * 
- * 3. Use utility functions from scheduling.ts:
- *    - calculateTotalStudyHours() - for total hours excluding skipped
- *    - filterSkippedSessions() - for filtering out skipped sessions
+ *
+ * 3. Skipped sessions are hidden from:
+ *    - Calendar display (display: 'none')
+ *    - Today's active session lists
+ *
+ * 4. Use utility functions from scheduling.ts:
+ *    - calculateTotalStudyHours() - includes completed AND skipped sessions
+ *    - filterSkippedSessions() - for filtering out skipped sessions from UI
  */
 export interface StudyPlan {
   id: string;
