@@ -1589,22 +1589,8 @@ function App() {
             }
         }
 
-        // Update the task's estimated hours based on actual time spent
-        setTasks(prevTasks =>
-            prevTasks.map(task => {
-                if (task.id === taskId) {
-                    const newEstimatedHours = Math.max(0, task.estimatedHours - hoursSpent);
-                    const newStatus = newEstimatedHours === 0 ? 'completed' : task.status;
-
-                    return {
-                        ...task,
-                        estimatedHours: newEstimatedHours,
-                        status: newStatus
-                    };
-                }
-                return task;
-            })
-        );
+        // Don't modify task estimated hours - they should remain as the original estimation
+        // Task completion is determined by session status, not by reducing estimated hours
 
         // Update study plans to mark session as done
         if (lastTimedSession) {
@@ -1685,10 +1671,10 @@ function App() {
                     sum + (session.done || session.status === 'skipped' ? session.allocatedHours : 0), 0
                 );
                 
-                // Update task status to completed
-                const updatedTasks = tasks.map(t => 
-                    t.id === taskId 
-                        ? { ...t, status: 'completed' as const, estimatedHours: totalCompletedHours }
+                // Update task status to completed without modifying estimated hours
+                const updatedTasks = tasks.map(t =>
+                    t.id === taskId
+                        ? { ...t, status: 'completed' as const }
                         : t
                 );
                 
@@ -1752,29 +1738,8 @@ function App() {
 
     // Handler to mark a session as done in studyPlans
     const handleMarkSessionDone = (planDate: string, sessionNumber: number) => {
-        // Update task estimated hours first
-        if (currentTask) {
-            setTasks(prevTasks =>
-                prevTasks.map(task => {
-                    if (task.id === currentTask.id) {
-                        const sessionHours = studyPlans
-                            .find(p => p.date === planDate)
-                            ?.plannedTasks.find(s => s.sessionNumber === sessionNumber && s.taskId === currentTask.id)
-                            ?.allocatedHours || 0;
-
-                        const newEstimatedHours = Math.max(0, task.estimatedHours - sessionHours);
-                        const newStatus = newEstimatedHours === 0 ? 'completed' : task.status;
-
-                        return {
-                            ...task,
-                            estimatedHours: newEstimatedHours,
-                            status: newStatus
-                        };
-                    }
-                    return task;
-                })
-            );
-        }
+        // Don't modify task estimated hours - they should remain as the original estimation
+        // Task completion is determined by session status, not by reducing estimated hours
 
         setStudyPlans(prevPlans => {
             const updatedPlans = prevPlans.map(plan => {
@@ -1907,7 +1872,14 @@ function App() {
                     plannedTasks: plan.plannedTasks.map(session => {
                         // Only skip the session if it matches both taskId and sessionNumber
                         if (session.taskId === taskId && session.sessionNumber === sessionNumber) {
-                            return { ...session, status: 'skipped' };
+                            return {
+                                ...session,
+                                status: 'skipped',
+                                skipMetadata: {
+                                    skippedAt: new Date().toISOString(),
+                                    reason: 'user_choice'
+                                }
+                            };
                         }
                         return session;
                     })
@@ -3180,7 +3152,7 @@ function App() {
                                                 <span>Keep TimePilot free for everyone</span>
                                             </div>
                                             <div className="flex items-center space-x-2">
-                                                <span className="text-green-500">✅</span>
+                                                <span className="text-green-500">���</span>
                                                 <span>Better performance and reliability</span>
                                             </div>
                                         </div>
