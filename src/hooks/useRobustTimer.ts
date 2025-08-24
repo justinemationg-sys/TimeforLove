@@ -37,7 +37,14 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
 
   // Update timer display using RAF for smooth updates when visible
   const updateTimerDisplay = useCallback(() => {
-    if (!timer.isRunning) return;
+    if (!timer.isRunning) {
+      // Ensure RAF is cancelled if timer is not running
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
+        rafId.current = undefined;
+      }
+      return;
+    }
 
     const actualTime = calculateActualTime(timer);
     const now = performance.now();
@@ -66,8 +73,8 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
       }
     }
 
-    // Continue animation loop if still running
-    if (timer.isRunning) {
+    // Only continue animation loop if still running and no RAF is pending
+    if (timer.isRunning && !rafId.current) {
       rafId.current = requestAnimationFrame(updateTimerDisplay);
     }
   }, [timer, calculateActualTime, onTimerUpdate, onTimerComplete]);
@@ -86,6 +93,7 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
       // Cancel RAF since it won't work reliably in background
       if (rafId.current) {
         cancelAnimationFrame(rafId.current);
+        rafId.current = undefined;
       }
 
       // Use interval fallback for background updates (less frequent but more reliable)
@@ -94,7 +102,10 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
           const actualTime = calculateActualTime(timer);
           if (actualTime <= 0 && onTimerComplete && !hasCompletedRef.current) {
             hasCompletedRef.current = true;
-            clearInterval(intervalId.current);
+            if (intervalId.current) {
+              clearInterval(intervalId.current);
+              intervalId.current = undefined;
+            }
             // Show notification when completing in background
             if (taskTitle) {
               const timeSpent = timer.totalTime - actualTime;
@@ -109,6 +120,7 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
       // Tab became visible again
       if (intervalId.current) {
         clearInterval(intervalId.current);
+        intervalId.current = undefined;
       }
 
       if (wasRunning.current && timer.isRunning) {
@@ -137,36 +149,44 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
     }
   }, [timer, calculateActualTime, onTimerUpdate, onTimerComplete, updateTimerDisplay]);
 
-  // Reset completion flag when timer is reset or restarted
+  // Reset completion flag when timer is reset, restarted, or new session starts
   useEffect(() => {
+    // Reset when timer is reset to full duration
     if (timer.currentTime === timer.totalTime && !timer.isRunning) {
       hasCompletedRef.current = false;
     }
-  }, [timer.currentTime, timer.totalTime, timer.isRunning]);
+    // Also reset when starting a new session (totalTime or currentTaskId changes)
+    // This ensures the flag is cleared when switching between tasks/sessions
+    hasCompletedRef.current = false;
+  }, [timer.totalTime, timer.currentTaskId]);
 
   // Start/stop timer effects
   useEffect(() => {
+    // Always cancel any existing RAF/interval first to prevent race conditions
+    if (rafId.current) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = undefined;
+    }
+    if (intervalId.current) {
+      clearInterval(intervalId.current);
+      intervalId.current = undefined;
+    }
+
     if (timer.isRunning) {
       // Start RAF updates if page is visible
       if (!document.hidden) {
         rafId.current = requestAnimationFrame(updateTimerDisplay);
-      }
-    } else {
-      // Stop all updates
-      if (rafId.current) {
-        cancelAnimationFrame(rafId.current);
-      }
-      if (intervalId.current) {
-        clearInterval(intervalId.current);
       }
     }
 
     return () => {
       if (rafId.current) {
         cancelAnimationFrame(rafId.current);
+        rafId.current = undefined;
       }
       if (intervalId.current) {
         clearInterval(intervalId.current);
+        intervalId.current = undefined;
       }
     };
   }, [timer.isRunning, updateTimerDisplay]);
@@ -191,9 +211,11 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
     return () => {
       if (rafId.current) {
         cancelAnimationFrame(rafId.current);
+        rafId.current = undefined;
       }
       if (intervalId.current) {
         clearInterval(intervalId.current);
+        intervalId.current = undefined;
       }
     };
   }, []);
