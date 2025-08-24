@@ -723,17 +723,29 @@ const StudyPlanView: React.FC<StudyPlanViewProps> = ({ studyPlans, tasks, fixedC
           </div>
           
           
-          {todaysPlan.plannedTasks
-            .filter(session => session.status !== 'skipped') // Hide skipped sessions from UI
-            .sort((a, b) => {
-              // Sort by current start time chronologically
-              const [aHour, aMinute] = (a.startTime || '00:00').split(':').map(Number);
-              const [bHour, bMinute] = (b.startTime || '00:00').split(':').map(Number);
-              const aMinutes = aHour * 60 + aMinute;
-              const bMinutes = bHour * 60 + bMinute;
-              return aMinutes - bMinutes;
-            })
-            .map((session) => {
+          {(() => {
+            // Combine tasks and commitments for chronological sorting
+            const tasks = todaysPlan.plannedTasks
+              .filter(session => session.status !== 'skipped') // Hide skipped sessions from UI
+              .map(session => ({ ...session, type: 'task' as const }));
+
+            const commitments = getCommitmentsForDate(todaysPlan.date, fixedCommitments)
+              .map(commitment => ({ ...commitment, type: 'commitment' as const }));
+
+            // Combine and sort all items by start time
+            const allItems = [...tasks, ...commitments]
+              .sort((a, b) => {
+                // Sort by current start time chronologically
+                const [aHour, aMinute] = (a.startTime || '00:00').split(':').map(Number);
+                const [bHour, bMinute] = (b.startTime || '00:00').split(':').map(Number);
+                const aMinutes = aHour * 60 + aMinute;
+                const bMinutes = bHour * 60 + bMinute;
+                return aMinutes - bMinutes;
+              });
+
+            return allItems.map((item) => {
+              if (item.type === 'task') {
+                const session = item;
             const task = getTaskById(session.taskId);
             if (!task) return null;
             const isDone = session.done;
@@ -943,78 +955,82 @@ const StudyPlanView: React.FC<StudyPlanViewProps> = ({ studyPlans, tasks, fixedC
                   </button>
                 )}
               </div>
-            );
-          })}
-
-          {/* Display commitments that count toward daily hours */}
-          {(() => {
-            const todaysCommitments = getCommitmentsForDate(todaysPlan.date, fixedCommitments);
-            return todaysCommitments.map((commitment) => (
-              <div
-                key={`commitment-${commitment.id}`}
-                className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4 mb-3 hover:shadow-md transition-all duration-200"
-              >
-                <div
-                  className="cursor-pointer"
-                  onClick={() => {
-                    if (onSelectCommitment) {
-                      const fixedCommitment = fixedCommitments.find(c => c.id === commitment.id);
-                      if (fixedCommitment) {
-                        onSelectCommitment(fixedCommitment, commitment.duration);
-                      }
-                    }
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center space-x-2">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-lg">
-                          <Settings className="text-blue-600 dark:text-blue-400" size={16} />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-blue-800 dark:text-blue-200">{commitment.title}</h3>
-                          <div className="flex items-center space-x-4 text-sm text-blue-600 dark:text-blue-400">
-                            <span className="flex items-center space-x-1">
-                              <Clock size={14} />
-                              <span>{commitment.startTime} - {commitment.endTime}</span>
-                            </span>
-                            <span className="flex items-center space-x-1">
-                              <BookOpen size={14} />
-                              <span>{commitment.duration.toFixed(1)}h</span>
-                            </span>
+                );
+              } else {
+                // Render commitment
+                const commitment = item;
+                return (
+                  <div
+                    key={`commitment-${commitment.id}`}
+                    className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4 mb-3 hover:shadow-md transition-all duration-200"
+                  >
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => {
+                        if (onSelectCommitment) {
+                          const fixedCommitment = fixedCommitments.find(c => c.id === commitment.id);
+                          if (fixedCommitment) {
+                            onSelectCommitment(fixedCommitment, commitment.duration);
+                          }
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
+                            <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-lg">
+                              <Settings className="text-blue-600 dark:text-blue-400" size={16} />
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-blue-800 dark:text-blue-200">{commitment.title}</h3>
+                              <div className="flex items-center space-x-4 text-sm text-blue-600 dark:text-blue-400">
+                                <span className="flex items-center space-x-1">
+                                  <Clock size={14} />
+                                  <span>{commitment.startTime} - {commitment.endTime}</span>
+                                </span>
+                                <span className="flex items-center space-x-1">
+                                  <BookOpen size={14} />
+                                  <span>{commitment.duration.toFixed(1)}h</span>
+                                </span>
+                              </div>
+                            </div>
                           </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                            {commitment.category}
+                          </span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                        {commitment.category}
-                      </span>
+
+                    {/* Skip button for commitments */}
+                    <div className="flex justify-end mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onSkipCommitment && todaysPlan) {
+                            onSkipCommitment(commitment.id, todaysPlan.date);
+                          }
+                        }}
+                        className="px-3 py-1 text-xs bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors duration-200 dark:bg-orange-900 dark:text-orange-300 dark:hover:bg-orange-800"
+                        title="Mark this commitment as cancelled/couldn't attend"
+                      >
+                        Mark as Cancelled
+                      </button>
                     </div>
                   </div>
-                </div>
-
-                {/* Skip button for commitments */}
-                <div className="flex justify-end mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onSkipCommitment && todaysPlan) {
-                        onSkipCommitment(commitment.id, todaysPlan.date);
-                      }
-                    }}
-                    className="px-3 py-1 text-xs bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors duration-200 dark:bg-orange-900 dark:text-orange-300 dark:hover:bg-orange-800"
-                    title="Mark this commitment as cancelled/couldn't attend"
-                  >
-                    Mark as Cancelled
-                  </button>
-                </div>
-              </div>
-            ));
+                );
+              }
+            });
           })()}
 
           {/* Show "No Sessions Planned" message when all sessions and commitments are filtered out */}
-          {todaysPlan.plannedTasks.filter(session => session.status !== 'skipped').length === 0 && getCommitmentsForDate(todaysPlan.date, fixedCommitments).length === 0 && (
+          {(() => {
+            const hasTasks = todaysPlan.plannedTasks.filter(session => session.status !== 'skipped').length > 0;
+            const hasCommitments = getCommitmentsForDate(todaysPlan.date, fixedCommitments).length > 0;
+            return !hasTasks && !hasCommitments;
+          })() && (
             <div className="text-center py-8">
               <div className="text-4xl mb-4">📚</div>
               <h3 className="text-xl font-semibold text-gray-800 mb-2 dark:text-white">No Sessions Planned</h3>
