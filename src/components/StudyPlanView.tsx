@@ -1194,91 +1194,104 @@ const StudyPlanView: React.FC<StudyPlanViewProps> = ({ studyPlans, tasks, fixedC
                   </div>
 
                   <div className="space-y-2">
-                    {plan.plannedTasks
-                      .filter(session => session.status !== 'skipped') // Hide skipped sessions from upcoming plans
-                      .sort((a, b) => {
-                        // Sort by current start time chronologically
-                        const [aHour, aMinute] = (a.startTime || '00:00').split(':').map(Number);
-                        const [bHour, bMinute] = (b.startTime || '00:00').split(':').map(Number);
-                        const aMinutes = aHour * 60 + aMinute;
-                        const bMinutes = bHour * 60 + bMinute;
-                        return aMinutes - bMinutes;
-                      })
-                      .map((session) => {
-                      const task = getTaskById(session.taskId);
-                      if (!task) return null;
-                      const sessionStatus = checkSessionStatus(session, plan.date);
-                      const isRescheduled = sessionStatus === 'rescheduled';
-
-                      return (
-                        <div
-                          key={`upcoming-${session.taskId}-${session.sessionNumber || 0}-${session.startTime || ''}-${plan.date}`}
-                          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 rounded space-y-1 sm:space-y-0 ${
-                            isRescheduled
-                              ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
-                              : 'bg-gray-50 dark:bg-gray-900'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-2 min-w-0 flex-1">
-                            <span className={`text-sm font-medium truncate ${
-                              isRescheduled
-                                ? 'text-blue-700 dark:text-blue-300'
-                                : 'text-gray-700 dark:text-gray-200'
-                            }`}>
-                              {task.title}
-                            </span>
-                            {task.category && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">({task.category})</span>
-                    )}
-                            {isRescheduled && (
-                              <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-300 whitespace-nowrap">
-                                Rescheduled
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center space-x-2 flex-shrink-0">
-                          <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-300">
-                            <span className="whitespace-nowrap">{session.startTime} - {session.endTime}</span>
-                            <span>-</span>
-                            <span>{formatTime(session.allocatedHours)}</span>
-                            {isRescheduled && session.originalTime && (
-                              <span className="text-blue-600 dark:text-blue-400 whitespace-nowrap">
-                                (from {session.originalTime})
-                              </span>
-                            )}
-                            </div>
-                            {/* Skip button removed from upcoming sessions - only for today's sessions */}
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {/* Display commitments that count toward daily hours for upcoming dates */}
                     {(() => {
-                      const upcomingCommitments = getCommitmentsForDate(plan.date, fixedCommitments);
-                      return upcomingCommitments.map((commitment) => (
-                        <div
-                          key={`upcoming-commitment-${commitment.id}`}
-                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 rounded bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 space-y-1 sm:space-y-0"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <div className="flex items-center space-x-1">
-                              <Settings className="text-blue-600 dark:text-blue-400" size={14} />
-                              <span className="text-sm font-medium text-blue-700 dark:text-blue-300 truncate">
-                                {commitment.title}
-                              </span>
+                      // Get tasks for this plan
+                      const tasks = plan.plannedTasks
+                        .filter(session => session.status !== 'skipped')
+                        .map(session => ({ ...session, type: 'task' as const }));
+
+                      // Get commitments for this date
+                      const commitments = getCommitmentsForDate(plan.date, fixedCommitments)
+                        .map(commitment => ({ ...commitment, type: 'commitment' as const }));
+
+                      // Combine and sort all items by start time (same as today's logic)
+                      const allItems = [...tasks, ...commitments]
+                        .sort((a, b) => {
+                          // Sort by current start time chronologically
+                          const [aHour, aMinute] = (a.startTime || '00:00').split(':').map(Number);
+                          const [bHour, bMinute] = (b.startTime || '00:00').split(':').map(Number);
+                          const aMinutes = aHour * 60 + aMinute;
+                          const bMinutes = bHour * 60 + bMinute;
+                          return aMinutes - bMinutes;
+                        });
+
+                      return allItems.map((item) => {
+                        if (item.type === 'task') {
+                          const session = item;
+                          const task = getTaskById(session.taskId);
+                          if (!task) return null;
+                          const sessionStatus = checkSessionStatus(session, plan.date);
+                          const isRescheduled = sessionStatus === 'rescheduled';
+
+                          return (
+                            <div
+                              key={`upcoming-${session.taskId}-${session.sessionNumber || 0}-${session.startTime || ''}-${plan.date}`}
+                              className={`flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 rounded space-y-1 sm:space-y-0 ${
+                                isRescheduled
+                                  ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                                  : 'bg-gray-50 dark:bg-gray-900'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2 min-w-0 flex-1">
+                                <span className={`text-sm font-medium truncate ${
+                                  isRescheduled
+                                    ? 'text-blue-700 dark:text-blue-300'
+                                    : 'text-gray-700 dark:text-gray-200'
+                                }`}>
+                                  {task.title}
+                                </span>
+                                {task.category && (
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">({task.category})</span>
+                                )}
+                                {isRescheduled && (
+                                  <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-300 whitespace-nowrap">
+                                    Rescheduled
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-2 flex-shrink-0">
+                                <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-300">
+                                  <span className="whitespace-nowrap">{session.startTime} - {session.endTime}</span>
+                                  <span>-</span>
+                                  <span>{formatTime(session.allocatedHours)}</span>
+                                  {isRescheduled && session.originalTime && (
+                                    <span className="text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                                      (from {session.originalTime})
+                                    </span>
+                                  )}
+                                </div>
+                                {/* Skip button removed from upcoming sessions - only for today's sessions */}
+                              </div>
                             </div>
-                            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-300">
-                              {commitment.category}
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-xs text-blue-600 dark:text-blue-400">
-                            <span>{commitment.startTime} - {commitment.endTime}</span>
-                            <span>-</span>
-                            <span>{formatTime(commitment.duration)}</span>
-                          </div>
-                        </div>
-                      ));
+                          );
+                        } else {
+                          // Commitment item
+                          const commitment = item;
+                          return (
+                            <div
+                              key={`upcoming-commitment-${commitment.id}`}
+                              className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 rounded bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 space-y-1 sm:space-y-0"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <div className="flex items-center space-x-1">
+                                  <Settings className="text-blue-600 dark:text-blue-400" size={14} />
+                                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300 truncate">
+                                    {commitment.title}
+                                  </span>
+                                </div>
+                                <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-300">
+                                  {commitment.category}
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-2 text-xs text-blue-600 dark:text-blue-400">
+                                <span>{commitment.startTime} - {commitment.endTime}</span>
+                                <span>-</span>
+                                <span>{formatTime(commitment.duration)}</span>
+                              </div>
+                            </div>
+                          );
+                        }
+                      });
                     })()}
                   </div>
                 </div>
