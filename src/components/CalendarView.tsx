@@ -63,7 +63,7 @@ const DEFAULT_MISSED_COLOR = '#dc2626'; // Darker Red
 const DEFAULT_COMPLETED_COLOR = '#d1d5db'; // Gray
 const DEFAULT_IMPORTANT_TASK_COLOR = '#f59e0b'; // Amber
 const DEFAULT_NOT_IMPORTANT_TASK_COLOR = '#64748b'; // Gray
-const DEFAULT_UNCATEGORIZED_COLOR = '#64748b'; // Gray for uncategorized items
+const DEFAULT_UNCATEGORIZED_COLOR = '#64748b'; // Gray
 
 interface ColorSettings {
   missedColor: string;
@@ -150,10 +150,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const [selectedManualSession, setSelectedManualSession] = useState<FixedCommitment | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [currentView, setCurrentView] = useState(() => {
+    const saved = localStorage.getItem('timepilot-calendar-view');
+    return saved || 'week';
+  });
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [isDragging, setIsDragging] = useState(false);
   const [dragFeedback, setDragFeedback] = useState<string>('');
   const [showInfoModal, setShowInfoModal] = useState(false);
 
+
+  // Persist calendar view to localStorage
+  useEffect(() => {
+    localStorage.setItem('timepilot-calendar-view', currentView);
+  }, [currentView]);
 
   // Mobile detection
   useEffect(() => {
@@ -1157,46 +1167,248 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Custom toolbar for interval selector
   function CustomToolbar({ label, onNavigate, onView, view }: any) {
+    const handleViewChange = (newView: string) => {
+      setCurrentView(newView);
+      if (newView !== 'agenda') {
+        onView(newView);
+      }
+    };
+
+    const handleNavigate = (action: string) => {
+      if (currentView === 'agenda') {
+        const newDate = new Date(currentDate);
+        if (action === 'PREV') {
+          newDate.setDate(newDate.getDate() - 7);
+        } else if (action === 'NEXT') {
+          newDate.setDate(newDate.getDate() + 7);
+        }
+        setCurrentDate(newDate);
+      } else {
+        onNavigate(action);
+      }
+    };
+
+    const getLabel = () => {
+      if (currentView === 'agenda') {
+        const endDate = new Date(currentDate);
+        endDate.setDate(endDate.getDate() + 6);
+        return `${moment(currentDate).format('MMM D')} - ${moment(endDate).format('MMM D, YYYY')}`;
+      }
+      return label;
+    };
+
     return (
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
-          <button onClick={() => onNavigate('PREV')} className="rounded-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800">
+          <button onClick={() => handleNavigate('PREV')} className="rounded-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800">
             <span className="sr-only">Previous</span>
             <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
-          <span className="font-semibold text-lg text-gray-800 dark:text-gray-100">{label}</span>
-          <button onClick={() => onNavigate('NEXT')} className="rounded-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800">
+          <span className="font-semibold text-lg text-gray-800 dark:text-gray-100">{getLabel()}</span>
+          <button onClick={() => handleNavigate('NEXT')} className="rounded-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800">
             <span className="sr-only">Next</span>
             <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
         </div>
         <div className="flex items-center space-x-2">
-          <select
-            value={timeInterval}
-            onChange={e => setTimeInterval(Number(e.target.value))}
-            className="border rounded-lg px-2 py-1 text-sm shadow-sm focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-            style={{ minWidth: 80 }}
-          >
-            {intervalOptions.map(opt => (
-              <option key={opt.value} value={opt.value} className="dark:bg-gray-800 dark:text-gray-100">{opt.label}</option>
-            ))}
-          </select>
+          {currentView !== 'agenda' && (
+            <select
+              value={timeInterval}
+              onChange={e => setTimeInterval(Number(e.target.value))}
+              className="border rounded-lg px-2 py-1 text-sm shadow-sm focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+              style={{ minWidth: 80 }}
+            >
+              {intervalOptions.map(opt => (
+                <option key={opt.value} value={opt.value} className="dark:bg-gray-800 dark:text-gray-100">{opt.label}</option>
+              ))}
+            </select>
+          )}
           <button
-            onClick={() => onView('day')}
-            className={`px-2 py-1 rounded-lg text-sm font-medium ${view === 'day' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'}`}
+            onClick={() => handleViewChange('day')}
+            className={`px-2 py-1 rounded-lg text-sm font-medium ${currentView === 'day' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'}`}
           >Day</button>
           <button
-            onClick={() => onView('week')}
-            className={`px-2 py-1 rounded-lg text-sm font-medium ${view === 'week' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'}`}
+            onClick={() => handleViewChange('week')}
+            className={`px-2 py-1 rounded-lg text-sm font-medium ${currentView === 'week' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'}`}
           >Week</button>
           <button
-            onClick={() => onView('month')}
-            className={`px-2 py-1 rounded-lg text-sm font-medium ${view === 'month' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'}`}
+            onClick={() => handleViewChange('month')}
+            className={`px-2 py-1 rounded-lg text-sm font-medium ${currentView === 'month' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'}`}
           >Month</button>
+          <button
+            onClick={() => handleViewChange('agenda')}
+            className={`px-2 py-1 rounded-lg text-sm font-medium ${currentView === 'agenda' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'}`}
+          >Agenda</button>
         </div>
       </div>
     );
   }
+
+  // Helper function to convert time string to minutes for sorting
+  const timeToMinutes = (timeStr: string): number => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // Custom Agenda Component
+  const CustomAgenda = () => {
+    const agendaEvents = useMemo(() => {
+      const startDate = new Date(currentDate);
+      const endDate = new Date(currentDate);
+      endDate.setDate(endDate.getDate() + 6);
+
+      const agendaItems: Array<{
+        date: Date;
+        time: string;
+        title: string;
+        type: 'study' | 'commitment';
+        color: string;
+        id: string;
+      }> = [];
+
+      // Get study sessions
+      studyPlans.forEach(plan => {
+        const planDate = new Date(plan.date);
+        if (planDate >= startDate && planDate <= endDate) {
+          plan.plannedTasks
+            .filter(session => session.status !== 'skipped')
+            .forEach(session => {
+              const task = tasks.find(t => t.id === session.taskId);
+              if (task && session.startTime && session.endTime) {
+                const sessionStatus = checkSessionStatus(session, plan.date);
+                let color = '#64748b'; // Default gray
+
+                if (sessionStatus === 'completed' || session.done) {
+                  color = colorSettings.completedColor;
+                } else if (sessionStatus === 'missed') {
+                  color = colorSettings.missedColor;
+                } else if (task.importance) {
+                  color = colorSettings.importantTaskColor;
+                } else {
+                  color = colorSettings.notImportantTaskColor;
+                }
+
+                agendaItems.push({
+                  date: planDate,
+                  time: `${session.startTime} - ${session.endTime}`,
+                  title: task.title,
+                  type: 'study',
+                  color,
+                  id: `study-${session.taskId}-${session.sessionNumber}`
+                });
+              }
+            });
+        }
+      });
+
+      // Get commitments - fix date iteration bug
+      let currentDay = new Date(startDate);
+      while (currentDay <= endDate) {
+        const dayString = currentDay.toISOString().split('T')[0];
+        fixedCommitments.forEach(commitment => {
+          if (doesCommitmentApplyToDate(commitment, dayString)) {
+            const color = categoryColors[commitment.category] || COMMITMENT_DEFAULT_COLOR;
+            agendaItems.push({
+              date: new Date(currentDay),
+              time: `${commitment.startTime} - ${commitment.endTime}`,
+              title: commitment.title,
+              type: 'commitment',
+              color,
+              id: `commitment-${commitment.id}-${dayString}`
+            });
+          }
+        });
+        currentDay = new Date(currentDay);
+        currentDay.setDate(currentDay.getDate() + 1);
+      }
+
+      // Sort by date and time
+      agendaItems.sort((a, b) => {
+        const dateCompare = a.date.getTime() - b.date.getTime();
+        if (dateCompare !== 0) return dateCompare;
+
+        // Convert time strings to minutes for proper sorting
+        const aTime = a.time.split(' - ')[0];
+        const bTime = b.time.split(' - ')[0];
+
+        const aMinutes = timeToMinutes(aTime);
+        const bMinutes = timeToMinutes(bTime);
+
+        return aMinutes - bMinutes;
+      });
+
+      return agendaItems;
+    }, [studyPlans, fixedCommitments, tasks, currentDate, colorSettings, categoryColors]);
+
+    const groupedEvents = useMemo(() => {
+      const groups: Record<string, typeof agendaEvents> = {};
+      agendaEvents.forEach(event => {
+        const dateKey = moment(event.date).format('YYYY-MM-DD');
+        if (!groups[dateKey]) {
+          groups[dateKey] = [];
+        }
+        groups[dateKey].push(event);
+      });
+      return groups;
+    }, [agendaEvents]);
+
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 max-h-[600px] overflow-y-auto">
+        {Object.keys(groupedEvents).length === 0 ? (
+          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+            No events scheduled for this week
+          </div>
+        ) : (
+          Object.entries(groupedEvents).map(([dateKey, events]) => (
+            <div key={dateKey} className="border-b dark:border-gray-700 last:border-b-0">
+              <div className="bg-gray-50 dark:bg-gray-700 px-4 py-2 sticky top-0">
+                <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                  {moment(dateKey).format('ddd MMM D')}
+                </h3>
+              </div>
+              <div className="divide-y dark:divide-gray-700">
+                {events.map(event => (
+                  <div key={event.id} className={`flex items-center p-3 hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                    event.type === 'commitment' ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''
+                  }`}>
+                    <div className="flex-shrink-0 w-16 text-right">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {event.time.split(' - ')[0]}
+                      </span>
+                    </div>
+                    <div
+                      className="w-1 h-8 mx-4 rounded-full"
+                      style={{ backgroundColor: event.color }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-medium truncate flex items-center gap-2 ${
+                        event.type === 'commitment'
+                          ? 'text-blue-900 dark:text-blue-100'
+                          : 'text-gray-900 dark:text-gray-100'
+                      }`}>
+                        {event.type === 'commitment' && (
+                          <Settings size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                        )}
+                        <span className="truncate">{event.title}</span>
+                        {event.type === 'commitment' && (
+                          <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded-full flex-shrink-0">
+                            Fixed
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {event.time}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  };
 
   // Calculate min/max for zoom effect - consistent full day view
   let minTime: Date, maxTime: Date;
@@ -1320,9 +1532,53 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           </div>
         )}
       </div>
+      {/* Always render the toolbar */}
+      <CustomToolbar
+        label={currentView === 'agenda' ?
+          (() => {
+            const endDate = new Date(currentDate);
+            endDate.setDate(endDate.getDate() + 6);
+            return `${moment(currentDate).format('MMM D')} - ${moment(endDate).format('MMM D, YYYY')}`;
+          })() :
+          moment(currentDate).format('MMMM YYYY')
+        }
+        onNavigate={(action: string) => {
+          const newDate = new Date(currentDate);
+          if (currentView === 'agenda') {
+            if (action === 'PREV') {
+              newDate.setDate(newDate.getDate() - 7);
+            } else if (action === 'NEXT') {
+              newDate.setDate(newDate.getDate() + 7);
+            }
+          } else {
+            // For other views, navigate by month/week/day
+            if (action === 'PREV') {
+              if (currentView === 'month') {
+                newDate.setMonth(newDate.getMonth() - 1);
+              } else if (currentView === 'week') {
+                newDate.setDate(newDate.getDate() - 7);
+              } else if (currentView === 'day') {
+                newDate.setDate(newDate.getDate() - 1);
+              }
+            } else if (action === 'NEXT') {
+              if (currentView === 'month') {
+                newDate.setMonth(newDate.getMonth() + 1);
+              } else if (currentView === 'week') {
+                newDate.setDate(newDate.getDate() + 7);
+              } else if (currentView === 'day') {
+                newDate.setDate(newDate.getDate() + 1);
+              }
+            }
+          }
+          setCurrentDate(newDate);
+        }}
+        onView={(view: string) => setCurrentView(view)}
+        view={currentView}
+      />
+
       <div
         style={{
-          height: '650px',
+          height: '600px',
           borderRadius: '1.5rem',
           overflow: 'hidden',
           background: 'rgba(255,255,255,0.95)',
@@ -1330,66 +1586,74 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         }}
         className="calendar-grid-container dark:bg-gray-900 dark:bg-opacity-95"
       >
-        <DragAndDropCalendar
-          localizer={localizer}
-          events={events}
-          startAccessor={(event: any) => (event as CalendarEvent).start}
-          endAccessor={(event: any) => (event as CalendarEvent).end}
-          style={{ height: '100%' }}
-          views={[Views.MONTH, Views.WEEK, Views.DAY]}
-          defaultView={Views.WEEK}
-          step={timeInterval}
-          timeslots={
-            timeInterval === 5 ? 12 :
-            timeInterval === 10 ? 6 :
-            timeInterval === 15 ? 4 :
-            timeInterval === 30 ? 2 :
-            1
-          }
-          min={minTime}
-          max={maxTime}
-          onSelectEvent={(event: any) => handleSelectEvent(event as CalendarEvent)}
-          eventPropGetter={(event: any, start: Date, end: Date, isSelected: boolean) => eventStyleGetter(event as CalendarEvent, start, end, isSelected)}
-          formats={{
-            timeGutterFormat: customGutterHeader,
-            eventTimeRangeFormat: ({ start, end }) =>
-              `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`
-          }}
-          components={{
-            toolbar: CustomToolbar,
-            event: CustomEventComponent
-          }}
-          rtl={false}
-          dayLayoutAlgorithm="no-overlap"
-          draggableAccessor={(event: any) => {
-            const calendarEvent = event as CalendarEvent;
-
-            // Allow dragging of commitments that count toward daily hours
-            if (calendarEvent.resource.type === 'commitment') {
-              const commitment = calendarEvent.resource.data as FixedCommitment;
-              return commitment.countsTowardDailyHours || false;
+        {currentView === 'agenda' ? (
+          <CustomAgenda />
+        ) : (
+          <DragAndDropCalendar
+            localizer={localizer}
+            events={events}
+            startAccessor={(event: any) => (event as CalendarEvent).start}
+            endAccessor={(event: any) => (event as CalendarEvent).end}
+            style={{ height: '100%' }}
+            views={[Views.MONTH, Views.WEEK, Views.DAY]}
+            defaultView={Views.WEEK}
+            view={currentView as any}
+            onView={(view: string) => setCurrentView(view)}
+            date={currentDate}
+            onNavigate={(date: Date) => setCurrentDate(date)}
+            step={timeInterval}
+            timeslots={
+              timeInterval === 5 ? 12 :
+              timeInterval === 10 ? 6 :
+              timeInterval === 15 ? 4 :
+              timeInterval === 30 ? 2 :
+              1
             }
+            min={minTime}
+            max={maxTime}
+            onSelectEvent={(event: any) => handleSelectEvent(event as CalendarEvent)}
+            eventPropGetter={(event: any, start: Date, end: Date, isSelected: boolean) => eventStyleGetter(event as CalendarEvent, start, end, isSelected)}
+            formats={{
+              timeGutterFormat: customGutterHeader,
+              eventTimeRangeFormat: ({ start, end }) =>
+                `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`
+            }}
+            components={{
+              toolbar: () => null, // Disable built-in toolbar since we render it separately
+              event: CustomEventComponent
+            }}
+            rtl={false}
+            dayLayoutAlgorithm="no-overlap"
+            draggableAccessor={(event: any) => {
+              const calendarEvent = event as CalendarEvent;
 
-            // Allow dragging of study sessions
-            if (calendarEvent.resource.type === 'study') {
-              const session = calendarEvent.resource.data;
-              const planDate = calendarEvent.resource.planDate || moment(calendarEvent.start).format('YYYY-MM-DD');
-              const sessionStatus = checkSessionStatus(session as StudySession, planDate);
+              // Allow dragging of commitments that count toward daily hours
+              if (calendarEvent.resource.type === 'commitment') {
+                const commitment = calendarEvent.resource.data as FixedCommitment;
+                return commitment.countsTowardDailyHours || false;
+              }
 
-              // Don't allow dragging of completed or done sessions
-              return sessionStatus !== 'completed' &&
-                     !(session as StudySession).done;
-            }
+              // Allow dragging of study sessions
+              if (calendarEvent.resource.type === 'study') {
+                const session = calendarEvent.resource.data;
+                const planDate = calendarEvent.resource.planDate || moment(calendarEvent.start).format('YYYY-MM-DD');
+                const sessionStatus = checkSessionStatus(session as StudySession, planDate);
 
-            return false;
-          }}
-          resizable={false}
-          onEventDrop={(args: any) => {
-            const { event, start, end } = args;
-            handleEventDrop({ event: event as CalendarEvent, start, end });
-          }}
-          onDragStart={handleDragStart}
-        />
+                // Don't allow dragging of completed or done sessions
+                return sessionStatus !== 'completed' &&
+                       !(session as StudySession).done;
+              }
+
+              return false;
+            }}
+            resizable={false}
+            onEventDrop={(args: any) => {
+              const { event, start, end } = args;
+              handleEventDrop({ event: event as CalendarEvent, start, end });
+            }}
+            onDragStart={handleDragStart}
+          />
+        )}
       </div>
       {/* Add custom CSS for thicker interval lines and better spacing */}
       <style>{`
