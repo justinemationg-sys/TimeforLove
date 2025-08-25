@@ -73,8 +73,8 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
       }
     }
 
-    // Only continue animation loop if still running and no RAF is pending
-    if (timer.isRunning && !rafId.current) {
+    // Continue animation loop while running
+    if (timer.isRunning) {
       rafId.current = requestAnimationFrame(updateTimerDisplay);
     }
   }, [timer, calculateActualTime, onTimerUpdate, onTimerComplete]);
