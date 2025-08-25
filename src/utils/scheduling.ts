@@ -111,7 +111,10 @@ export const calculateCommittedHoursForDate = (date: string, commitments: FixedC
 // Utility functions
 export const getLocalDateString = (): string => {
   const now = new Date();
-  return now.toISOString().split('T')[0];
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 };
 
 /**
