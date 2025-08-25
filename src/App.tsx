@@ -352,6 +352,31 @@ function App() {
         }
     }, [hasLoadedFromStorage]); // Run when app loads
 
+    // Periodic check for date changes (every minute) to handle day transitions
+    useEffect(() => {
+        if (!hasLoadedFromStorage) return;
+
+        const interval = setInterval(() => {
+            const lastCheckDate = localStorage.getItem('timepilot-last-past-session-check');
+            const today = getLocalDateString();
+
+            // If date has changed and we have study plans, run the skip check
+            if (lastCheckDate !== today && studyPlans.length > 0) {
+                const updatedPlans = markPastSessionsAsSkipped(studyPlans);
+                const hasChanges = JSON.stringify(updatedPlans) !== JSON.stringify(studyPlans);
+
+                if (hasChanges) {
+                    setStudyPlans(updatedPlans);
+                    console.log('Automatically skipped past sessions due to date change');
+                }
+
+                localStorage.setItem('timepilot-last-past-session-check', today);
+            }
+        }, 60000); // Check every minute
+
+        return () => clearInterval(interval);
+    }, [hasLoadedFromStorage, studyPlans]);
+
     // Update gamification when study data changes
     const updateGamificationData = (updatedStudyPlans?: StudyPlan[], updatedTasks?: Task[]) => {
         const plansToUse = updatedStudyPlans || studyPlans;
