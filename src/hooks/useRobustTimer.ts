@@ -59,8 +59,9 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
 
       onTimerUpdate(newTimer);
 
-      // Check if timer completed (only trigger once)
-      if (actualTime <= 0 && onTimerComplete && !hasCompletedRef.current) {
+      // Check if timer completed (only trigger once and ensure we're still on the same task)
+      if (actualTime <= 0 && onTimerComplete && !hasCompletedRef.current &&
+          timer.currentTaskId && timer.totalTime > 0) {
         hasCompletedRef.current = true;
         // Show notification and play alert if tab is hidden
         if (document.hidden && taskTitle) {
@@ -100,7 +101,8 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
       if (timer.isRunning) {
         intervalId.current = window.setInterval(() => {
           const actualTime = calculateActualTime(timer);
-          if (actualTime <= 0 && onTimerComplete && !hasCompletedRef.current) {
+          if (actualTime <= 0 && onTimerComplete && !hasCompletedRef.current &&
+              timer.currentTaskId && timer.totalTime > 0) {
             hasCompletedRef.current = true;
             if (intervalId.current) {
               clearInterval(intervalId.current);
@@ -135,9 +137,10 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
 
         onTimerUpdate(newTimer);
 
-        // Check if timer completed while hidden (only trigger once)
+        // Check if timer completed while hidden (only trigger once and ensure we're still on the same task)
         if (actualTime <= 0) {
-          if (onTimerComplete && !hasCompletedRef.current) {
+          if (onTimerComplete && !hasCompletedRef.current &&
+              timer.currentTaskId && timer.totalTime > 0) {
             hasCompletedRef.current = true;
             onTimerComplete();
           }
@@ -151,13 +154,19 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
 
   // Reset completion flag when timer is reset, restarted, or new session starts
   useEffect(() => {
-    // Reset when timer is reset to full duration
-    if (timer.currentTime === timer.totalTime && !timer.isRunning) {
-      hasCompletedRef.current = false;
-    }
-    // Also reset when starting a new session (totalTime or currentTaskId changes)
-    // This ensures the flag is cleared when switching between tasks/sessions
+    // Always reset the completion flag when switching tasks/sessions or changing total time
+    // This prevents auto-completion issues when switching between sessions
     hasCompletedRef.current = false;
+
+    // Cancel any existing animations to prevent race conditions
+    if (rafId.current) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = undefined;
+    }
+    if (intervalId.current) {
+      clearInterval(intervalId.current);
+      intervalId.current = undefined;
+    }
   }, [timer.totalTime, timer.currentTaskId]);
 
   // Start/stop timer effects
