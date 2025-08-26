@@ -126,7 +126,7 @@ const AchievementNotification: React.FC<AchievementNotificationProps> = ({
                   Achievement Unlocked!
                 </h3>
                 <span className={`text-xs font-medium px-2 py-1 rounded-full ${colors.text} bg-gradient-to-r ${colors.bg} text-white`}>
-                  {achievement.rarity.toUpperCase()}
+                  {achievement.rarity?.toUpperCase() || 'COMMON'}
                 </span>
               </div>
             </div>
