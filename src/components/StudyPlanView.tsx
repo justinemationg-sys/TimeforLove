@@ -26,6 +26,12 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// Helper function to convert decimal hours to minutes
+const formatHoursToMinutes = (hours: number): string => {
+  const totalMinutes = Math.round(hours * 60);
+  return `${totalMinutes}m`;
+};
+
 // Helper function to get commitments that count toward daily hours for a specific date
 const getCommitmentsForDate = (date: string, fixedCommitments: FixedCommitment[]): Array<{
   id: string;
@@ -990,7 +996,7 @@ const StudyPlanView: React.FC<StudyPlanViewProps> = ({ studyPlans, tasks, fixedC
                                 </span>
                                 <span className="flex items-center space-x-1">
                                   <BookOpen size={14} />
-                                  <span>{commitment.duration.toFixed(1)}h</span>
+                                  <span>{formatHoursToMinutes(commitment.duration)}</span>
                                 </span>
                               </div>
                             </div>
@@ -1086,7 +1092,7 @@ const StudyPlanView: React.FC<StudyPlanViewProps> = ({ studyPlans, tasks, fixedC
                                 </span>
                                 <span className="flex items-center space-x-1 flex-shrink-0">
                                   <BookOpen size={14} />
-                                  <span>{commitment.duration.toFixed(1)}h</span>
+                                  <span>{formatHoursToMinutes(commitment.duration)}</span>
                                 </span>
                               </div>
                             </div>
