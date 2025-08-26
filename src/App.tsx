@@ -3,7 +3,7 @@ import { Calendar, CheckSquare, Clock, Settings as SettingsIcon, BarChart3, Cale
 import { Task, StudyPlan, UserSettings, FixedCommitment, Commitment, StudySession, TimerState } from './types';
 import { GamificationData, Achievement, DailyChallenge, MotivationalMessage } from './types-gamification';
 import { useRobustTimer, startTimer, pauseTimer, resumeTimer, resetTimer, updateTimerTime } from './hooks/useRobustTimer';
-import { getUnscheduledMinutesForTasks, getLocalDateString, checkCommitmentConflicts, generateNewStudyPlan, generateNewStudyPlanWithPreservation, reshuffleStudyPlan, markPastSessionsAsSkipped } from './utils/scheduling';
+import { getUnscheduledMinutesForTasks, getLocalDateString, checkCommitmentConflicts, generateNewStudyPlan, generateNewStudyPlanWithPreservation, reshuffleStudyPlan, markPastSessionsAsSkipped, formatTime } from './utils/scheduling';
 import { getAccurateUnscheduledTasks, shouldShowNotifications, getNotificationPriority } from './utils/enhanced-notifications';
 import { enhancedEstimationTracker } from './utils/enhanced-estimation-tracker';
 import {
@@ -1376,25 +1376,77 @@ function App() {
     const handleCommitmentTimerComplete = (commitment: FixedCommitment, hoursSpent: number) => {
         // Update gamification stats for commitment completion
         setGamificationData(prevData => {
-            const updatedStats = updateUserStats(prevData.userStats, {
-                totalStudyTime: prevData.userStats.totalStudyTime + (hoursSpent * 60), // Convert to minutes
-                sessionsCompleted: prevData.userStats.sessionsCompleted + 1,
-                tasksCompleted: prevData.userStats.tasksCompleted, // Don't increment for commitments
-                streakDays: updateStudyStreak(prevData.userStats.streakDays, new Date()),
-                level: calculateLevel(prevData.userStats.totalStudyTime + (hoursSpent * 60))
-            });
+            // Ensure prevData.stats exists with defaults
+            const currentStats = prevData.stats || {
+                totalStudyHours: 0,
+                totalTasksCompleted: 0,
+                currentStreak: 0,
+                longestStreak: 0,
+                perfectWeeks: 0,
+                earlyFinishes: 0,
+                totalSessions: 0,
+                averageSessionLength: 0,
+                favoriteStudyTime: 'morning' as const,
+                efficiencyScore: 100,
+                level: 1,
+                totalPoints: 0,
+                joinedDate: new Date().toISOString(),
+                lastActiveDate: new Date().toISOString()
+            };
 
-            const unlockedAchievements = checkAchievementUnlocks(updatedStats, prevData.achievements);
+            // Create a simulated study plan for the commitment completion to update stats correctly
+            const today = new Date().toISOString().split('T')[0];
+            const commitmentSession = {
+                taskId: commitment.id,
+                sessionNumber: 1,
+                allocatedHours: hoursSpent,
+                actualHours: hoursSpent,
+                status: 'completed' as const,
+                done: true,
+                startTime: '00:00',
+                endTime: '00:00',
+                completedAt: new Date().toISOString()
+            };
+
+            // Create or update today's plan with the commitment session
+            const existingTodayPlan = studyPlans.find(plan => plan.date === today);
+            const updatedStudyPlans = existingTodayPlan
+                ? studyPlans.map(plan =>
+                    plan.date === today
+                        ? { ...plan, plannedTasks: [...plan.plannedTasks, commitmentSession] }
+                        : plan
+                  )
+                : [...studyPlans, {
+                    id: `${today}-commitment`,
+                    date: today,
+                    plannedTasks: [commitmentSession],
+                    totalStudyHours: hoursSpent,
+                    availableHours: hoursSpent
+                  }];
+
+            const updatedStats = updateUserStats(currentStats, updatedStudyPlans, tasks);
+            const updatedStreak = updateStudyStreak(prevData.streak || { current: 0, longest: 0, lastStudyDate: '', streakDates: [] }, updatedStudyPlans);
+
+            const unlockedAchievements = checkAchievementUnlocks(
+                prevData.unlockedAchievements || [],
+                updatedStats,
+                updatedStreak
+            );
 
             // Show achievement notification if any unlocked
             if (unlockedAchievements.length > 0) {
-                setAchievementNotification(unlockedAchievements[0]);
+                const firstUnlockedId = unlockedAchievements[0];
+                const achievementObj = ACHIEVEMENTS.find(a => a.id === firstUnlockedId);
+                if (achievementObj) {
+                    setAchievementNotification(achievementObj);
+                }
             }
 
             return {
                 ...prevData,
-                userStats: updatedStats,
-                achievements: prevData.achievements.map(achievement => {
+                stats: updatedStats,
+                streak: updatedStreak,
+                achievements: (prevData.achievements || []).map(achievement => {
                     const unlocked = unlockedAchievements.find(a => a.id === achievement.id);
                     return unlocked ? { ...achievement, unlockedAt: unlocked.unlockedAt } : achievement;
                 })
@@ -1402,15 +1454,44 @@ function App() {
         });
 
         // Add to completed commitments history
+        const completedDate = new Date().toISOString().split('T')[0];
         const completedRecord = {
             commitmentId: commitment.id,
             title: commitment.title,
-            date: new Date().toISOString().split('T')[0],
+            date: completedDate,
             duration: currentSession?.allocatedHours || 0,
             actualHours: hoursSpent,
             completedAt: new Date().toISOString()
         };
         setCompletedCommitments(prev => [...prev, completedRecord]);
+
+        // Mark the commitment as completed for this date using cancellation logic
+        // This ensures it gets removed from the study plan and calendar
+        if (commitment.recurring) {
+            // For recurring commitments, add this date to deletedOccurrences
+            setFixedCommitments(prevCommitments =>
+                prevCommitments.map(c =>
+                    c.id === commitment.id
+                        ? {
+                            ...c,
+                            deletedOccurrences: [...(c.deletedOccurrences || []), completedDate]
+                        }
+                        : c
+                )
+            );
+        } else {
+            // For one-time commitments, remove the specific date from specificDates
+            setFixedCommitments(prevCommitments =>
+                prevCommitments.map(c =>
+                    c.id === commitment.id
+                        ? {
+                            ...c,
+                            specificDates: c.specificDates?.filter(d => d !== completedDate) || []
+                        }
+                        : c
+                )
+            );
+        }
 
         // Clear the commitment timer state
         setCurrentCommitment(null);
@@ -1466,16 +1547,17 @@ function App() {
         // Only allow timer for commitments that count toward daily hours
         if (!commitment.countsTowardDailyHours) return;
 
-        const durationSeconds = duration * 3600; // Convert hours to seconds
-        setGlobalTimer({
+        // First, ensure any running timer is stopped to prevent race conditions
+        setGlobalTimer(prev => ({
+            ...prev,
             isRunning: false,
-            currentTime: durationSeconds,
-            totalTime: durationSeconds,
-            currentTaskId: commitment.id,
             startTime: undefined,
             pausedTime: undefined,
             lastUpdateTime: undefined
-        });
+        }));
+
+        const durationSeconds = duration * 3600; // Convert hours to seconds
+
         // Set the current commitment to distinguish from tasks
         setCurrentCommitment(commitment);
         setCurrentTask({
@@ -1490,14 +1572,37 @@ function App() {
             category: commitment.category,
         });
         setCurrentSession({
-            allocatedHours: duration,
-            planDate: new Date().toISOString().split('T')[0],
-            sessionNumber: 1
+            allocatedHours: duration
+            // Don't set planDate and sessionNumber for commitments
+            // This ensures StudyTimer calls onTimerComplete instead of onMarkSessionDone
         });
         setActiveTab('timer');
+
+        // Use setTimeout to ensure the timer state is reset after the current execution cycle
+        // This prevents race conditions with the useRobustTimer hook
+        setTimeout(() => {
+            setGlobalTimer({
+                isRunning: false,
+                currentTime: durationSeconds,
+                totalTime: durationSeconds,
+                currentTaskId: commitment.id,
+                startTime: undefined,
+                pausedTime: undefined,
+                lastUpdateTime: undefined
+            });
+        }, 0);
     };
 
     const handleSelectTask = (task: Task, session?: { allocatedHours: number; planDate?: string; sessionNumber?: number }) => {
+        // First, ensure any running timer is stopped to prevent race conditions
+        setGlobalTimer(prev => ({
+            ...prev,
+            isRunning: false,
+            startTime: undefined,
+            pausedTime: undefined,
+            lastUpdateTime: undefined
+        }));
+
         setCurrentTask(task);
         setCurrentCommitment(null); // Clear commitment state when selecting a regular task
         setCurrentSession(session || null);
@@ -1510,16 +1615,19 @@ function App() {
         const timeToUse = session?.allocatedHours || task.estimatedHours;
         const timeInSeconds = Math.floor(timeToUse * 3600);
 
-        // Force reset timer state for new session
-        setGlobalTimer({
-            isRunning: false,
-            currentTime: timeInSeconds,
-            totalTime: timeInSeconds,
-            currentTaskId: task.id,
-            startTime: undefined,
-            pausedTime: undefined,
-            lastUpdateTime: undefined
-        });
+        // Use setTimeout to ensure the timer state is reset after the current execution cycle
+        // This prevents race conditions with the useRobustTimer hook
+        setTimeout(() => {
+            setGlobalTimer({
+                isRunning: false,
+                currentTime: timeInSeconds,
+                totalTime: timeInSeconds,
+                currentTaskId: task.id,
+                startTime: undefined,
+                pausedTime: undefined,
+                lastUpdateTime: undefined
+            });
+        }, 0);
     };
 
     // Update handleTimerComplete to set readyToMarkDone for the last-timed session
@@ -2661,30 +2769,46 @@ function App() {
                             onSelectTask={handleSelectTask}
                             onSelectCommitment={handleSelectCommitment}
                             onStartManualSession={(commitment, durationSeconds) => {
-                                setGlobalTimer({
+                                // First, ensure any running timer is stopped to prevent race conditions
+                                setGlobalTimer(prev => ({
+                                    ...prev,
                                     isRunning: false,
-                                    currentTime: durationSeconds,
-                                    totalTime: durationSeconds,
-                                    currentTaskId: commitment.id,
                                     startTime: undefined,
                                     pausedTime: undefined,
                                     lastUpdateTime: undefined
-                                });
+                                }));
+
+                                // Set the current commitment to distinguish from tasks
+                                setCurrentCommitment(commitment);
                                 setCurrentTask({
                                     id: commitment.id,
                                     title: commitment.title,
-                                    subject: 'Manual Session',
                                     estimatedHours: durationSeconds / 3600,
                                     status: 'pending',
                                     importance: false,
                                     deadline: '',
                                     createdAt: commitment.createdAt,
-                                    description: '',
+                                    description: commitment.description || '',
+                                    category: commitment.category,
                                 });
                                 setCurrentSession({
                                     allocatedHours: Number(durationSeconds) / 3600
+                                    // Don't set planDate and sessionNumber for commitments
                                 });
                                 setActiveTab('timer');
+
+                                // Use setTimeout to ensure the timer state is reset after the current execution cycle
+                                setTimeout(() => {
+                                    setGlobalTimer({
+                                        isRunning: false,
+                                        currentTime: durationSeconds,
+                                        totalTime: durationSeconds,
+                                        currentTaskId: commitment.id,
+                                        startTime: undefined,
+                                        pausedTime: undefined,
+                                        lastUpdateTime: undefined
+                                    });
+                                }, 0);
                             }}
                             onDeleteFixedCommitment={handleDeleteCommitment}
                             onUpdateCommitment={handleUpdateFixedCommitment}
