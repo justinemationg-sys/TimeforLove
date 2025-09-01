@@ -3413,6 +3413,8 @@ function App() {
                     />
                 )}
 
+                <PWAInstallPrompt />
+
             </div>
         </div>
         </ErrorBoundary>
