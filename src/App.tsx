@@ -675,6 +675,85 @@ function App() {
         }
     }, [tasks, settings, fixedCommitments, hasLoadedFromStorage]);
 
+    // Habit helpers
+    const computeDailyStreak = (dates: Set<string>, todayStr: string) => {
+        let streak = 0;
+        const d = new Date(todayStr);
+        while (true) {
+            const yyyy = d.toISOString().split('T')[0];
+            if (dates.has(yyyy)) {
+                streak += 1;
+                d.setDate(d.getDate() - 1);
+            } else {
+                break;
+            }
+        }
+        return streak;
+    };
+
+    const computeWeeklyStreak = (history: string[], targetPerWeek: number = 1, todayStr: string) => {
+        // Count consecutive weeks (ending this week) meeting target
+        const byWeek = new Map<string, number>();
+        history.forEach(d => {
+            const date = new Date(d);
+            const startOfWeek = new Date(date);
+            startOfWeek.setDate(date.getDate() - date.getDay());
+            const key = startOfWeek.toISOString().split('T')[0];
+            byWeek.set(key, (byWeek.get(key) || 0) + 1);
+        });
+        let streak = 0;
+        const now = new Date(todayStr);
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        while (true) {
+            const key = weekStart.toISOString().split('T')[0];
+            const count = byWeek.get(key) || 0;
+            if (count >= targetPerWeek) {
+                streak += 1;
+                weekStart.setDate(weekStart.getDate() - 7);
+            } else {
+                break;
+            }
+        }
+        return streak;
+    };
+
+    const handleAddHabit = (input: { title: string; cadence: 'daily' | 'weekly'; targetPerWeek?: number; reminder?: boolean }) => {
+        const newHabit: Habit = {
+            id: Date.now().toString(),
+            title: input.title.trim(),
+            cadence: input.cadence,
+            targetPerWeek: input.cadence === 'weekly' ? (input.targetPerWeek || 1) : undefined,
+            reminder: input.reminder,
+            streak: 0,
+            history: [],
+            createdAt: new Date().toISOString(),
+        };
+        setHabits(prev => [...prev, newHabit]);
+    };
+
+    const handleToggleHabitToday = (habitId: string) => {
+        const today = getLocalDateString();
+        setHabits(prev => prev.map(h => {
+            if (h.id !== habitId) return h;
+            const hasToday = h.history.includes(today);
+            const newHistory = hasToday ? h.history.filter(d => d !== today) : [...h.history, today];
+            // Recompute streak
+            const datesSet = new Set(newHistory);
+            let streak = 0;
+            if (h.cadence === 'daily') {
+                streak = computeDailyStreak(datesSet, today);
+            } else {
+                streak = computeWeeklyStreak(newHistory, h.targetPerWeek || 1, today);
+            }
+            return { ...h, history: newHistory, lastDoneDate: hasToday ? undefined : today, streak };
+        }));
+    };
+
+    const handleDeleteHabit = (habitId: string) => {
+        setHabits(prev => prev.filter(h => h.id !== habitId));
+    };
+
     // Manual study plan generation handler
     const handleGenerateStudyPlan = async () => {
         if (tasks.length > 0) {
