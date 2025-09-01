@@ -128,11 +128,10 @@ const EnvironmentCard: React.FC = () => {
           lat = pos.coords.latitude;
           lon = pos.coords.longitude;
         } catch (geoErr) {
-          // Gracefully handle denied/unavailable geolocation without IP fallback to avoid blocked cross-origin requests
-          setData({
-            timezone: tzFromDevice,
-            fetchedAt: Date.now(),
-          });
+          // Gracefully handle denied/unavailable geolocation; persist minimal cache to prevent repeated attempts for TTL
+          const minimal = { timezone: tzFromDevice, fetchedAt: Date.now() } as EnvData;
+          setData(minimal);
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(minimal)); } catch {}
           setError('Location permission denied or unavailable');
           setLoading(false);
           return;
@@ -205,9 +204,9 @@ const EnvironmentCard: React.FC = () => {
       }
     };
 
-    // Fetch if no data or cached data is incomplete
-    const needsRefetch = !data || !data.city || !data.country || typeof data.temperatureC !== 'number';
-    if (needsRefetch) fetchEnv();
+    // Fetch only if no data or stale by TTL (ignore missing fields to avoid repeated attempts)
+    const stale = !data?.fetchedAt || (Date.now() - (data.fetchedAt || 0) >= WEATHER_TTL_MS);
+    if (stale) fetchEnv();
   }, [data, tzFromDevice]);
 
   useEffect(() => {
