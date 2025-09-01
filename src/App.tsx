@@ -1150,18 +1150,24 @@ function App() {
                 }
             }
         }
-        
+
         setFixedCommitments(updatedCommitments);
-        
-        // Regenerate study plan with updated commitments, preserving manual schedules
-        if (tasks.length > 0) {
+
+        // Check if this is only a timing update (drag and drop) vs structural change
+        const isTimingOnlyUpdate = originalCommitment && updates && Object.keys(updates).every(key =>
+            key === 'modifiedOccurrences' || key === 'daySpecificTimings'
+        );
+
+        // Only regenerate study plan if this is NOT just a timing update
+        // Timing updates (drag/drop) shouldn't affect study sessions scheduling
+        if (!isTimingOnlyUpdate && tasks.length > 0) {
             const { plans: newPlans } = generateNewStudyPlanWithPreservation(tasks, settings, updatedCommitments, studyPlans);
-            
+
             // Preserve session status from previous plan
             newPlans.forEach(plan => {
                 const prevPlan = studyPlans.find(p => p.date === plan.date);
                 if (!prevPlan) return;
-                
+
                 // Preserve session status and properties
                 plan.plannedTasks.forEach(session => {
                     const prevSession = prevPlan.plannedTasks.find(s => s.taskId === session.taskId && s.sessionNumber === session.sessionNumber);
@@ -1187,9 +1193,9 @@ function App() {
                     }
                 });
             });
-            
+
             setStudyPlans(newPlans);
-        setLastPlanStaleReason("commitment");
+            setLastPlanStaleReason("commitment");
         }
     };
 
