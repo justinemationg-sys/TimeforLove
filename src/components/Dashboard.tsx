@@ -190,6 +190,8 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, studyPlans, dailyAvailable
         </div>
       </div>
 
+      <EnvironmentCard />
+
           {useMemo(() => {
         const totalAllEstimatedHours = tasks.reduce((sum, task) => sum + task.estimatedHours, 0);
         
