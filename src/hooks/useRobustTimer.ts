@@ -167,7 +167,7 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
       clearInterval(intervalId.current);
       intervalId.current = undefined;
     }
-  }, [timer.totalTime, timer.currentTaskId]);
+  }, [timer.totalTime, timer.currentTaskId, timer.currentTime]);
 
   // Start/stop timer effects
   useEffect(() => {
