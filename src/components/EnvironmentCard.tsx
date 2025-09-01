@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MapPin, Globe2, CloudSun, CloudRain, Cloud, Sun, Moon, Thermometer, Wind, Loader2, AlertTriangle } from 'lucide-react';
+import { MapPin, Globe2, CloudSun, CloudRain, Cloud, Sun, Moon, Thermometer, Wind, Loader2, AlertTriangle, Lightbulb } from 'lucide-react';
 
 interface EnvData {
   city?: string;
@@ -234,6 +234,54 @@ const EnvironmentCard: React.FC = () => {
     return WEATHER_DESCRIPTIONS[data.weatherCode] || null;
   }, [data?.weatherCode]);
 
+  const tips = useMemo(() => {
+    const out: string[] = [];
+    const tz = data?.timezone || tzFromDevice;
+    // Local hour in specified timezone
+    let hour = new Date().getHours();
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).formatToParts(new Date());
+      const h = parts.find(p => p.type === 'hour')?.value;
+      if (h) hour = parseInt(h, 10);
+    } catch {}
+
+    // Time-of-day tips
+    if (hour >= 5 && hour < 9) {
+      out.push('Morning warm-up: plan your day and start with a 25-minute focus block.');
+    } else if (hour >= 9 && hour < 12) {
+      out.push('Prime deep-work hours: tackle your hardest task first.');
+    } else if (hour >= 12 && hour < 15) {
+      out.push('Afternoon energy dip? Try short sessions (25/5) and a quick walk.');
+    } else if (hour >= 15 && hour < 18) {
+      out.push('Great time for reviews or lighter tasks; wrap up loose ends.');
+    } else if (hour >= 18 && hour < 22) {
+      out.push('Evening wind-down: one focused session, then plan tomorrow.');
+    } else {
+      out.push('Late hours: keep it short and focused, then rest well.');
+    }
+
+    // Weather-based tips
+    const temp = data?.temperatureC;
+    const code = data?.weatherCode;
+    const wind = data?.windSpeed || 0;
+    const isRain = code !== undefined && ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code));
+    const isStorm = code !== undefined && ([95,96,99].includes(code));
+    const isSnow = code !== undefined && ([71,73,75,77,85,86].includes(code));
+    const isClear = code !== undefined && ([0,1].includes(code));
+
+    if (typeof temp === 'number') {
+      if (temp >= 30) out.push('Hot weather: hydrate and study in cooler spots or times.');
+      else if (temp <= 10) out.push('Chilly outside: do quick stretch breaks and keep warm.');
+    }
+    if (isRain) out.push('Rainy mood? Perfect for an indoor focus session with ambient noise.');
+    if (isStorm) out.push('Stormy weather: download materials and keep an offline backup.');
+    if (isSnow) out.push('Snowy day: schedule short movement breaks to stay energized.');
+    if (isClear && hour >= 11 && hour <= 15) out.push('Clear midday: take a 5-minute sun break between sessions.');
+    if (wind >= 30) out.push('Windy: close windows and reduce noise distractions.');
+
+    return out.slice(0, 3);
+  }, [data?.timezone, tzFromDevice, data?.temperatureC, data?.weatherCode, data?.windSpeed]);
+
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 dark:bg-gray-900 dark:shadow-gray-900">
       <div className="flex items-center justify-between mb-2">
@@ -289,6 +337,23 @@ const EnvironmentCard: React.FC = () => {
           </div>
         </div>
       </div>
+      {tips.length > 0 && (
+        <div className="mt-3 p-3 rounded-lg bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 border border-yellow-200 dark:border-yellow-800">
+          <div className="flex items-start">
+            <div className="p-2 rounded-md bg-yellow-100/70 dark:bg-yellow-800/40 text-yellow-700 dark:text-yellow-200">
+              <Lightbulb className="w-4 h-4" />
+            </div>
+            <div className="ml-3">
+              <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Tips for right now</div>
+              <ul className="mt-1 space-y-1 text-xs text-gray-600 dark:text-gray-300 list-disc ml-4">
+                {tips.map((t, i) => (
+                  <li key={i}>{t}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
       {data?.source && (
         <div className="mt-2 text-[10px] text-gray-400 dark:text-gray-500">Source: {data.source === 'geolocation' ? 'Device location' : 'IP-based'}</div>
       )}
