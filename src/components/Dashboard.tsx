@@ -3,6 +3,8 @@ import { Clock, BookOpen, TrendingUp, Calendar, Bell, CheckCircle2, AlertTriangl
 import { Task, StudyPlan } from '../types';
 import { formatTime, getLocalDateString, checkSessionStatus } from '../utils/scheduling';
 import SafePieChart from './SafePieChart';
+import HabitTracker from './HabitTracker';
+import { Habit } from '../types';
 
 interface DashboardProps {
   tasks: Task[];
