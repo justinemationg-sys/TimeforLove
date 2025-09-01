@@ -763,6 +763,9 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, studyPlans, dailyAvailable
       </div>
 
       {/* Move session analytics, recent activities, and table into a compact grid at the bottom */}
+      {/* Habits Card */}
+      <HabitTracker habits={habits} onAddHabit={onAddHabit} onToggleHabitToday={onToggleHabitToday} onDeleteHabit={onDeleteHabit} />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
         {/* Session Analytics Card - Bottom */}
         <div className="bg-white rounded-xl shadow p-4 dark:bg-gray-900 dark:shadow-gray-900 flex flex-col justify-between min-h-[180px]">
