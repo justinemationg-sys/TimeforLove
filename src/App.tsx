@@ -36,6 +36,7 @@ import TimePilotIcon from './components/TimePilotIcon';
 import WelcomeOnboarding from './components/WelcomeOnboarding';
 import GuidedTaskInput from './components/GuidedTaskInput';
 import Confetti from './components/Confetti';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 import './utils/test-data-setup'; // Import test data setup for testing
 import { assessAddTaskFeasibility } from './utils/task-feasibility';
 
@@ -281,6 +282,11 @@ function App() {
             document.documentElement.classList.add('dark');
         } else {
             document.documentElement.classList.remove('dark');
+        }
+        // Update theme-color to match mode (for mobile status bar)
+        const meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+        if (meta) {
+            meta.setAttribute('content', darkMode ? '#0b1020' : '#3b82f6');
         }
     }, [darkMode]);
 
@@ -3325,7 +3331,7 @@ function App() {
                                         </h4>
                                         <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
                                             <div className="flex items-center space-x-2">
-                                                <span className="text-green-500">✅</span>
+                                                <span className="text-green-500">���</span>
                                                 <span>New features and improvements</span>
                                             </div>
                                             <div className="flex items-center space-x-2">
