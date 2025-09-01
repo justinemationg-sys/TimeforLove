@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Calendar, CheckSquare, Clock, Settings as SettingsIcon, BarChart3, CalendarDays, Lightbulb, Edit, Trash2, Menu, X, HelpCircle, Trophy, User } from 'lucide-react';
-import { Task, StudyPlan, UserSettings, FixedCommitment, Commitment, StudySession, TimerState } from './types';
+import { Task, StudyPlan, UserSettings, FixedCommitment, Commitment, StudySession, TimerState, Habit } from './types';
 import { GamificationData, Achievement, DailyChallenge, MotivationalMessage } from './types-gamification';
 import { useRobustTimer, startTimer, pauseTimer, resumeTimer, resetTimer, updateTimerTime } from './hooks/useRobustTimer';
 import { getUnscheduledMinutesForTasks, getLocalDateString, checkCommitmentConflicts, generateNewStudyPlan, generateNewStudyPlanWithPreservation, reshuffleStudyPlan, markPastSessionsAsSkipped, formatTime } from './utils/scheduling';
@@ -95,6 +95,9 @@ function App() {
     const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
     const [autoRemovedTasks, setAutoRemovedTasks] = useState<string[]>([]);
     const [showSuggestionsPanel, setShowSuggestionsPanel] = useState(false);
+
+    // Habits state
+    const [habits, setHabits] = useState<Habit[]>([]);
 
     // State to track if current timer is for a commitment
     const [currentCommitment, setCurrentCommitment] = useState<FixedCommitment | null>(null);
@@ -234,6 +237,15 @@ function App() {
                     };
                     setSettings({ ...defaultSettings, ...parsed });
                 }
+            }
+
+            // Load habits
+            const savedHabits = localStorage.getItem('timepilot-habits');
+            if (savedHabits) {
+                try {
+                    const parsed = JSON.parse(savedHabits);
+                    if (Array.isArray(parsed)) setHabits(parsed);
+                } catch {}
             }
 
             // Load gamification data
@@ -643,6 +655,10 @@ function App() {
     useEffect(() => {
         localStorage.setItem('timepilot-studyPlans', JSON.stringify(studyPlans));
     }, [studyPlans]);
+
+    useEffect(() => {
+        localStorage.setItem('timepilot-habits', JSON.stringify(habits));
+    }, [habits]);
 
     // Mark plan as stale when tasks, settings, or commitments change (but not on initial load)
     useEffect(() => {
@@ -2734,6 +2750,10 @@ function App() {
                             onSelectTask={handleSelectTask}
                             onGenerateStudyPlan={handleGenerateStudyPlan}
                             hasCompletedTutorial={localStorage.getItem('timepilot-interactive-tutorial-complete') === 'true'}
+                            habits={habits}
+                            onAddHabit={handleAddHabit}
+                            onToggleHabitToday={handleToggleHabitToday}
+                            onDeleteHabit={handleDeleteHabit}
                         />
                     )}
                     {showOnboarding && (
