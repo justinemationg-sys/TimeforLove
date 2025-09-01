@@ -247,11 +247,11 @@ const EnvironmentCard: React.FC = () => {
 
     // Time-of-day tips
     if (hour >= 5 && hour < 9) {
-      out.push('Morning warm-up: plan your day and start with a 25-minute focus block.');
+      out.push('It is early in the morning! Plan your day and start with a focus block.');
     } else if (hour >= 9 && hour < 12) {
       out.push('Prime deep-work hours: tackle your hardest task first.');
     } else if (hour >= 12 && hour < 15) {
-      out.push('Afternoon energy dip? Try short sessions (25/5) and a quick walk.');
+      out.push('Afternoon energy dip? Try short sessions and a quick walk.');
     } else if (hour >= 15 && hour < 18) {
       out.push('Great time for reviews or lighter tasks; wrap up loose ends.');
     } else if (hour >= 18 && hour < 22) {
