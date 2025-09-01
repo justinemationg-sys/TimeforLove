@@ -102,8 +102,9 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
       if (timer.isRunning) {
         intervalId.current = window.setInterval(() => {
           const actualTime = calculateActualTime(timer);
+          // Only complete if timer was actually running and reached zero naturally
           if (actualTime <= 0 && onTimerComplete && !hasCompletedRef.current &&
-              timer.currentTaskId && timer.totalTime > 0) {
+              timer.currentTaskId && timer.totalTime > 0 && timer.isRunning && timer.startTime) {
             hasCompletedRef.current = true;
             if (intervalId.current) {
               clearInterval(intervalId.current);
