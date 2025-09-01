@@ -548,56 +548,207 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onUpdateTask, onDeleteTask, 
 
                     {/* 7. Time Estimation - Dual Mode Interface */}
                     <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
-                          Time Estimation <span className="text-red-500">*</span>
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setShowTimeEstimationModal(true)}
-                          className="text-gray-400 hover:text-blue-600 transition-colors"
-                          title="How does time estimation work?"
-                        >
-                          <HelpCircle size={14} />
-                        </button>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            Time Estimation <span className="text-red-500">*</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowTimeEstimationModal(true)}
+                            className="text-gray-400 hover:text-blue-600 transition-colors"
+                            title="How does time estimation work?"
+                          >
+                            <HelpCircle size={14} />
+                          </button>
+                        </div>
+                        <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                          <button
+                            type="button"
+                            onClick={() => setEstimationMode('total')}
+                            className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                              estimationMode === 'total'
+                                ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                            }`}
+                          >
+                            Total Time
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEstimationMode('session')}
+                            className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                              estimationMode === 'session'
+                                ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                            }`}
+                          >
+                            Session Planning
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="flex gap-2 items-center">
-                        <div className="flex-1">
-                          <input
-                            type="number"
-                            min="0"
-                            value={editFormData.estimatedHours || ''}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value) || 0;
-                              if (value >= 0) {
-                                setEditFormData({ ...editFormData, estimatedHours: value });
-                              }
-                            }}
-                            className="w-full border rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 bg-white dark:bg-gray-800 dark:text-white"
-                            placeholder="0"
-                          />
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hours</div>
+                      {estimationMode === 'total' ? (
+                        <div className="flex gap-2 items-center">
+                          <div className="flex-1">
+                            <input
+                              type="number"
+                              min="0"
+                              value={editFormData.estimatedHours || ''}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value) || 0;
+                                if (value >= 0) {
+                                  setEditFormData({ ...editFormData, estimatedHours: value });
+                                }
+                              }}
+                              className="w-full border rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 bg-white dark:bg-gray-800 dark:text-white"
+                              placeholder="0"
+                            />
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hours</div>
+                          </div>
+                          <div className="text-gray-500 dark:text-gray-400 text-lg font-bold">:</div>
+                          <div className="flex-1">
+                            <input
+                              type="number"
+                              min="0"
+                              max="59"
+                              value={editFormData.estimatedMinutes || ''}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value) || 0;
+                                if (value >= 0 && value <= 59) {
+                                  setEditFormData({ ...editFormData, estimatedMinutes: value });
+                                }
+                              }}
+                              className="w-full border rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 bg-white dark:bg-gray-800 dark:text-white"
+                              placeholder="0"
+                            />
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Minutes</div>
+                          </div>
                         </div>
-                        <div className="text-gray-500 dark:text-gray-400 text-lg font-bold">:</div>
-                        <div className="flex-1">
-                          <input
-                            type="number"
-                            min="0"
-                            max="59"
-                            value={editFormData.estimatedMinutes || ''}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value) || 0;
-                              if (value >= 0 && value <= 59) {
-                                setEditFormData({ ...editFormData, estimatedMinutes: value });
-                              }
-                            }}
-                            className="w-full border rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 bg-white dark:bg-gray-800 dark:text-white"
-                            placeholder="0"
-                          />
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Minutes</div>
+                      ) : (
+                        <div className="space-y-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                          <div className="flex items-center space-x-2 text-blue-700 dark:text-blue-300">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="font-medium text-sm">Session-Based Planning</span>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                              How long will each work session be?
+                            </label>
+                            <div className="flex gap-2 items-center">
+                              <div className="flex-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="8"
+                                  value={sessionData.sessionHours}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === '' || (/^\d*$/.test(value) && parseInt(value) >= 0 && parseInt(value) <= 8)) {
+                                      setSessionData(prev => ({ ...prev, sessionHours: value }));
+                                    }
+                                  }}
+                                  className="w-full border rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 bg-white dark:bg-gray-800 dark:text-white"
+                                  placeholder="2"
+                                />
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hours</div>
+                              </div>
+                              <div className="text-gray-500 dark:text-gray-400 text-lg font-bold">:</div>
+                              <div className="flex-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="59"
+                                  value={sessionData.sessionMinutes}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === '' || /^\d*$/.test(value)) {
+                                      const numValue = parseInt(value) || 0;
+                                      if (numValue >= 0 && numValue <= 59) {
+                                        setSessionData(prev => ({ ...prev, sessionMinutes: value }));
+                                      }
+                                    }
+                                  }}
+                                  className="w-full border rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 bg-white dark:bg-gray-800 dark:text-white"
+                                  placeholder="0"
+                                />
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Minutes</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {editFormData.startDate && editFormData.deadline && (() => {
+                            const calculation = calculateSessionBasedTime();
+                            return (
+                              <div className={`p-3 rounded-lg border ${
+                                calculation.feasible
+                                  ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
+                                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+                              }`}>
+                                <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Automatic Calculation:</div>
+                                <div className="grid grid-cols-3 gap-3 text-sm">
+                                  <div>
+                                    <div className="text-gray-500 dark:text-gray-400">Session Duration:</div>
+                                    <div className="font-medium text-gray-800 dark:text-white">
+                                      {sessionData.sessionHours}h {sessionData.sessionMinutes}m
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-gray-500 dark:text-gray-400">Planned Sessions:</div>
+                                    <div className="font-medium text-gray-800 dark:text-white">
+                                      {calculation.sessions} sessions
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-gray-500 dark:text-gray-400">Total Time:</div>
+                                    <div className={`font-medium ${
+                                      calculation.feasible
+                                        ? 'text-blue-600 dark:text-blue-400'
+                                        : 'text-red-600 dark:text-red-400'
+                                    }`}>
+                                      {calculation.totalTime > 0 ? `${calculation.totalTime.toFixed(1)}h` : 'Set session duration'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {calculation.frequency && (
+                                  <div className="mt-2 flex items-center space-x-1">
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">Frequency:</span>
+                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{calculation.frequency}</span>
+                                  </div>
+                                )}
+
+                                {calculation.warning && (
+                                  <div className="mt-2 flex items-start space-x-2 text-xs text-red-600 dark:text-red-400">
+                                    <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span>{calculation.warning}</span>
+                                  </div>
+                                )}
+
+                                {calculation.feasible && calculation.totalTime > 0 && (
+                                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                    The app will automatically schedule {calculation.sessions} sessions based on your availability.
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {(!editFormData.startDate || !editFormData.deadline) && (
+                            <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg flex items-center space-x-2">
+                              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span>Please set both start date and deadline to see the automatic calculation.</span>
+                            </div>
+                          )}
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     {/* 8. Task Importance */}
