@@ -1150,18 +1150,24 @@ function App() {
                 }
             }
         }
-        
+
         setFixedCommitments(updatedCommitments);
-        
-        // Regenerate study plan with updated commitments, preserving manual schedules
-        if (tasks.length > 0) {
+
+        // Check if this is only a timing update (drag and drop) vs structural change
+        const isTimingOnlyUpdate = originalCommitment && updates && Object.keys(updates).every(key =>
+            key === 'modifiedOccurrences' || key === 'daySpecificTimings'
+        );
+
+        // Only regenerate study plan if this is NOT just a timing update
+        // Timing updates (drag/drop) shouldn't affect study sessions scheduling
+        if (!isTimingOnlyUpdate && tasks.length > 0) {
             const { plans: newPlans } = generateNewStudyPlanWithPreservation(tasks, settings, updatedCommitments, studyPlans);
-            
+
             // Preserve session status from previous plan
             newPlans.forEach(plan => {
                 const prevPlan = studyPlans.find(p => p.date === plan.date);
                 if (!prevPlan) return;
-                
+
                 // Preserve session status and properties
                 plan.plannedTasks.forEach(session => {
                     const prevSession = prevPlan.plannedTasks.find(s => s.taskId === session.taskId && s.sessionNumber === session.sessionNumber);
@@ -1187,9 +1193,9 @@ function App() {
                     }
                 });
             });
-            
+
             setStudyPlans(newPlans);
-        setLastPlanStaleReason("commitment");
+            setLastPlanStaleReason("commitment");
         }
     };
 
@@ -1594,62 +1600,88 @@ function App() {
     };
 
     const handleSelectTask = (task: Task, session?: { allocatedHours: number; planDate?: string; sessionNumber?: number }) => {
-        // First, ensure any running timer is stopped to prevent race conditions
-        setGlobalTimer(prev => ({
-            ...prev,
+        // Reset timer controls processing flag
+        timerControlsRef.current.isProcessing = false;
+
+        // Calculate time for new session/task
+        const timeToUse = session?.allocatedHours || task.estimatedHours;
+        const timeInSeconds = Math.floor(timeToUse * 3600);
+
+        // Immediately stop current timer and reset state to prevent race conditions
+        setGlobalTimer({
             isRunning: false,
+            currentTime: timeInSeconds,
+            totalTime: timeInSeconds,
+            currentTaskId: task.id,
             startTime: undefined,
             pausedTime: undefined,
             lastUpdateTime: undefined
-        }));
+        });
 
+        // Update other state after timer is reset
         setCurrentTask(task);
         setCurrentCommitment(null); // Clear commitment state when selecting a regular task
         setCurrentSession(session || null);
         setActiveTab('timer');
+
         if (session?.planDate && session?.sessionNumber) {
             setLastTimedSession({ planDate: session.planDate, sessionNumber: session.sessionNumber });
+        } else {
+            setLastTimedSession(null); // Clear last timed session when selecting a new task
         }
-
-        // Always initialize timer for any task selection (new task, different task, or different session)
-        const timeToUse = session?.allocatedHours || task.estimatedHours;
-        const timeInSeconds = Math.floor(timeToUse * 3600);
-
-        // Use setTimeout to ensure the timer state is reset after the current execution cycle
-        // This prevents race conditions with the useRobustTimer hook
-        setTimeout(() => {
-            setGlobalTimer({
-                isRunning: false,
-                currentTime: timeInSeconds,
-                totalTime: timeInSeconds,
-                currentTaskId: task.id,
-                startTime: undefined,
-                pausedTime: undefined,
-                lastUpdateTime: undefined
-            });
-        }, 0);
     };
 
     // Update handleTimerComplete to set readyToMarkDone for the last-timed session
-    // Timer control functions using robust timer helpers
+    // Timer control functions using robust timer helpers with debouncing
+    const timerControlsRef = useRef({ isProcessing: false });
+
     const handleTimerStart = () => {
+        if (timerControlsRef.current.isProcessing) return;
+        timerControlsRef.current.isProcessing = true;
+
         setGlobalTimer(prev => {
-            if (prev.isRunning) return prev; // Already running
-            return prev.startTime ? resumeTimer(prev) : startTimer(prev);
+            if (prev.isRunning) {
+                timerControlsRef.current.isProcessing = false;
+                return prev; // Already running
+            }
+            const newTimer = prev.startTime ? resumeTimer(prev) : startTimer(prev);
+            setTimeout(() => { timerControlsRef.current.isProcessing = false; }, 100);
+            return newTimer;
         });
     };
 
     const handleTimerPause = () => {
-        setGlobalTimer(prev => pauseTimer(prev));
+        if (timerControlsRef.current.isProcessing) return;
+        timerControlsRef.current.isProcessing = true;
+
+        setGlobalTimer(prev => {
+            const newTimer = pauseTimer(prev);
+            setTimeout(() => { timerControlsRef.current.isProcessing = false; }, 100);
+            return newTimer;
+        });
     };
 
     const handleTimerStop = () => {
+        if (timerControlsRef.current.isProcessing) return;
+        timerControlsRef.current.isProcessing = true;
+
         // Just stop the timer without marking session as done
-        setGlobalTimer(prev => pauseTimer(prev));
+        setGlobalTimer(prev => {
+            const newTimer = pauseTimer(prev);
+            setTimeout(() => { timerControlsRef.current.isProcessing = false; }, 100);
+            return newTimer;
+        });
     };
 
     const handleTimerReset = () => {
-        setGlobalTimer(prev => resetTimer(prev));
+        if (timerControlsRef.current.isProcessing) return;
+        timerControlsRef.current.isProcessing = true;
+
+        setGlobalTimer(prev => {
+            const newTimer = resetTimer(prev);
+            setTimeout(() => { timerControlsRef.current.isProcessing = false; }, 100);
+            return newTimer;
+        });
     };
 
     // Speed up timer for testing purposes

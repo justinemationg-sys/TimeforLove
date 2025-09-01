@@ -727,15 +727,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       const newEndTime = moment(end).format('HH:mm');
       const dayOfWeek = moment(start).day();
 
-      // For recurring commitments with day-specific timing, update the specific day timing
+      // For recurring commitments with day-specific timing, only modify this specific date
       if (commitment.recurring && commitment.useDaySpecificTiming) {
-        const updatedDaySpecificTimings = commitment.daySpecificTimings?.map(timing =>
-          timing.dayOfWeek === dayOfWeek
-            ? { ...timing, startTime: newStartTime, endTime: newEndTime, isAllDay: false }
-            : timing
-        ) || [];
-
-        // Also create a modified occurrence for this specific date to override the day-specific timing
+        // Create a modified occurrence for this specific date only - don't change future days
         const updatedModifiedOccurrences = {
           ...commitment.modifiedOccurrences,
           [targetDate]: {
@@ -748,11 +742,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         };
 
         onUpdateCommitment(commitment.id, {
-          daySpecificTimings: updatedDaySpecificTimings,
           modifiedOccurrences: updatedModifiedOccurrences
         });
 
-        setDragFeedback(`✅ Commitment moved to ${newStartTime} - ${newEndTime} (${moment(targetDate).format('MMM D')} & future ${moment(start).format('dddd')}s)`);
+        setDragFeedback(`✅ Commitment moved to ${newStartTime} - ${newEndTime} on ${moment(targetDate).format('MMM D')} only`);
         setTimeout(() => setDragFeedback(''), 3000);
         return;
       }

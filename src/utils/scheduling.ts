@@ -3714,6 +3714,21 @@ export const preserveManualSchedules = (
           session.rescheduledAt = prevSession.rescheduledAt;
           session.isManualOverride = prevSession.isManualOverride;
         }
+
+        // PRESERVE ALL EXISTING SESSION DURATIONS unless they were completed/skipped
+        // This ensures that existing scheduled sessions maintain their allocated hours during regeneration
+        if (!prevSession.done && prevSession.status !== 'completed' && prevSession.status !== 'skipped') {
+          session.allocatedHours = prevSession.allocatedHours;
+
+          // Also recalculate end time based on preserved duration
+          if (session.startTime && session.allocatedHours) {
+            const [startHour, startMinute] = session.startTime.split(':').map(Number);
+            const durationMinutes = Math.round(session.allocatedHours * 60);
+            const endTime = new Date();
+            endTime.setHours(startHour, startMinute + durationMinutes, 0, 0);
+            session.endTime = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
+          }
+        }
       }
     });
   });

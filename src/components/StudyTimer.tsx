@@ -320,7 +320,7 @@ const StudyTimer: React.FC<StudyTimerProps> = ({
           </div>
 
           {/* Session Actions */}
-          {timer.currentTime === 0 && (
+          {timer.currentTime <= 0.5 && (
             <div className="space-y-3">
               <button
                 onClick={handleMarkSessionDone}

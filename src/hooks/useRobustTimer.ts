@@ -60,8 +60,9 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
       onTimerUpdate(newTimer);
 
       // Check if timer completed (only trigger once and ensure we're still on the same task)
+      // Also ensure timer was actually running to prevent false completion on state changes
       if (actualTime <= 0 && onTimerComplete && !hasCompletedRef.current &&
-          timer.currentTaskId && timer.totalTime > 0) {
+          timer.currentTaskId && timer.totalTime > 0 && timer.isRunning && timer.startTime) {
         hasCompletedRef.current = true;
         // Show notification and play alert if tab is hidden
         if (document.hidden && taskTitle) {
@@ -101,8 +102,9 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
       if (timer.isRunning) {
         intervalId.current = window.setInterval(() => {
           const actualTime = calculateActualTime(timer);
+          // Only complete if timer was actually running and reached zero naturally
           if (actualTime <= 0 && onTimerComplete && !hasCompletedRef.current &&
-              timer.currentTaskId && timer.totalTime > 0) {
+              timer.currentTaskId && timer.totalTime > 0 && timer.isRunning && timer.startTime) {
             hasCompletedRef.current = true;
             if (intervalId.current) {
               clearInterval(intervalId.current);
@@ -138,9 +140,10 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
         onTimerUpdate(newTimer);
 
         // Check if timer completed while hidden (only trigger once and ensure we're still on the same task)
+        // Also ensure timer was actually running to prevent false completion
         if (actualTime <= 0) {
           if (onTimerComplete && !hasCompletedRef.current &&
-              timer.currentTaskId && timer.totalTime > 0) {
+              timer.currentTaskId && timer.totalTime > 0 && timer.isRunning && timer.startTime) {
             hasCompletedRef.current = true;
             onTimerComplete();
           }
@@ -167,7 +170,7 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
       clearInterval(intervalId.current);
       intervalId.current = undefined;
     }
-  }, [timer.totalTime, timer.currentTaskId]);
+  }, [timer.totalTime, timer.currentTaskId, timer.currentTime]);
 
   // Start/stop timer effects
   useEffect(() => {
