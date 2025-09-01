@@ -120,6 +120,7 @@ const EnvironmentCard: React.FC = () => {
 
         // Reverse geocode if city/country missing
         if (lat != null && lon != null && (!city || !country)) {
+          // 1) Open-Meteo reverse geocoding
           try {
             const revRes = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=en`);
             if (revRes.ok) {
@@ -133,6 +134,35 @@ const EnvironmentCard: React.FC = () => {
               }
             }
           } catch {}
+
+          // 2) Nominatim fallback if still missing
+          if (!city || !country) {
+            try {
+              const nomRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
+              if (nomRes.ok) {
+                const nom = await nomRes.json();
+                const addr = nom && nom.address ? nom.address : {};
+                const disp: string | undefined = nom && nom.display_name;
+                city = city || addr.city || addr.town || addr.village || addr.municipality || (disp ? disp.split(',')[0] : undefined);
+                region = region || addr.state || addr.region || addr.county;
+                country = country || addr.country;
+              }
+            } catch {}
+          }
+
+          // 3) IP-based naming fallback as last resort
+          if (!city || !country) {
+            try {
+              const ipRes2 = await fetch('https://ipapi.co/json/');
+              if (ipRes2.ok) {
+                const ipJson2 = await ipRes2.json();
+                city = city || ipJson2.city;
+                region = region || ipJson2.region;
+                country = country || ipJson2.country_name || ipJson2.country;
+                timezone = ipJson2.timezone || timezone;
+              }
+            } catch {}
+          }
         }
 
         // Weather
