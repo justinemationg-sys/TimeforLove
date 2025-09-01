@@ -1600,40 +1600,35 @@ function App() {
     };
 
     const handleSelectTask = (task: Task, session?: { allocatedHours: number; planDate?: string; sessionNumber?: number }) => {
-        // First, ensure any running timer is stopped to prevent race conditions
-        setGlobalTimer(prev => ({
-            ...prev,
+        // Reset timer controls processing flag
+        timerControlsRef.current.isProcessing = false;
+
+        // Calculate time for new session/task
+        const timeToUse = session?.allocatedHours || task.estimatedHours;
+        const timeInSeconds = Math.floor(timeToUse * 3600);
+
+        // Immediately stop current timer and reset state to prevent race conditions
+        setGlobalTimer({
             isRunning: false,
+            currentTime: timeInSeconds,
+            totalTime: timeInSeconds,
+            currentTaskId: task.id,
             startTime: undefined,
             pausedTime: undefined,
             lastUpdateTime: undefined
-        }));
+        });
 
+        // Update other state after timer is reset
         setCurrentTask(task);
         setCurrentCommitment(null); // Clear commitment state when selecting a regular task
         setCurrentSession(session || null);
         setActiveTab('timer');
+
         if (session?.planDate && session?.sessionNumber) {
             setLastTimedSession({ planDate: session.planDate, sessionNumber: session.sessionNumber });
+        } else {
+            setLastTimedSession(null); // Clear last timed session when selecting a new task
         }
-
-        // Always initialize timer for any task selection (new task, different task, or different session)
-        const timeToUse = session?.allocatedHours || task.estimatedHours;
-        const timeInSeconds = Math.floor(timeToUse * 3600);
-
-        // Use setTimeout to ensure the timer state is reset after the current execution cycle
-        // This prevents race conditions with the useRobustTimer hook
-        setTimeout(() => {
-            setGlobalTimer({
-                isRunning: false,
-                currentTime: timeInSeconds,
-                totalTime: timeInSeconds,
-                currentTaskId: task.id,
-                startTime: undefined,
-                pausedTime: undefined,
-                lastUpdateTime: undefined
-            });
-        }, 0);
     };
 
     // Update handleTimerComplete to set readyToMarkDone for the last-timed session
@@ -3304,7 +3299,7 @@ function App() {
                                             {[
                                                 { amount: '50', emoji: '☕', desc: 'Coffee' },
                                                 { amount: '100', emoji: '🍕', desc: 'Pizza' },
-                                                { amount: '200', emoji: '���', desc: 'Party' }
+                                                { amount: '200', emoji: '🎉', desc: 'Party' }
                                             ].map((item, index) => (
                                                 <div
                                                     key={index}
