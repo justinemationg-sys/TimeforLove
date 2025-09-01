@@ -105,17 +105,14 @@ const EnvironmentCard: React.FC = () => {
           lat = pos.coords.latitude;
           lon = pos.coords.longitude;
         } catch (geoErr) {
-          // Fallback to IP-based location
-          source = 'ipapi';
-          const ipRes = await fetch('https://ipapi.co/json/');
-          if (!ipRes.ok) throw new Error('IP geolocation failed');
-          const ipJson = await ipRes.json();
-          lat = typeof ipJson.latitude === 'number' ? ipJson.latitude : parseFloat(ipJson.latitude);
-          lon = typeof ipJson.longitude === 'number' ? ipJson.longitude : parseFloat(ipJson.longitude);
-          city = ipJson.city;
-          region = ipJson.region;
-          country = ipJson.country_name || ipJson.country;
-          timezone = ipJson.timezone || timezone;
+          // Gracefully handle denied/unavailable geolocation without IP fallback to avoid blocked cross-origin requests
+          setData({
+            timezone: tzFromDevice,
+            fetchedAt: Date.now(),
+          });
+          setError('Location permission denied or unavailable');
+          setLoading(false);
+          return;
         }
 
         // Reverse geocode if city/country missing
@@ -150,19 +147,6 @@ const EnvironmentCard: React.FC = () => {
             } catch {}
           }
 
-          // 3) IP-based naming fallback as last resort
-          if (!city || !country) {
-            try {
-              const ipRes2 = await fetch('https://ipapi.co/json/');
-              if (ipRes2.ok) {
-                const ipJson2 = await ipRes2.json();
-                city = city || ipJson2.city;
-                region = region || ipJson2.region;
-                country = country || ipJson2.country_name || ipJson2.country;
-                timezone = ipJson2.timezone || timezone;
-              }
-            } catch {}
-          }
         }
 
         // Weather
