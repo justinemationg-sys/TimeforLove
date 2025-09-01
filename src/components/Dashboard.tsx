@@ -5,6 +5,7 @@ import { formatTime, getLocalDateString, checkSessionStatus } from '../utils/sch
 import SafePieChart from './SafePieChart';
 import HabitTracker from './HabitTracker';
 import { Habit } from '../types';
+import EnvironmentCard from './EnvironmentCard';
 
 interface DashboardProps {
   tasks: Task[];
