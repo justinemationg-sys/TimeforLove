@@ -48,6 +48,7 @@ const WEATHER_DESCRIPTIONS: Record<number, { label: string; icon: React.ReactNod
 
 const CACHE_KEY = 'timepilot-env-cache-v1';
 const WEATHER_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const SESSION_KEY = 'timepilot-env-fetched-session-v1';
 
 function cToF(c?: number) {
   if (typeof c !== 'number') return undefined;
@@ -106,14 +107,6 @@ const EnvironmentCard: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-
-        // Respect temporary network-disable flag to avoid repeated console errors on blocked environments
-        const disabledUntil = parseInt(localStorage.getItem('timepilot-env-net-disabled-until') || '0', 10);
-        if (disabledUntil && Date.now() < disabledUntil) {
-          setData({ timezone: tzFromDevice, fetchedAt: Date.now() });
-          setLoading(false);
-          return;
-        }
 
         let lat: number | undefined;
         let lon: number | undefined;
@@ -215,10 +208,19 @@ const EnvironmentCard: React.FC = () => {
       }
     };
 
-    // Fetch only if no data or stale by TTL (ignore missing fields to avoid repeated attempts)
-    const stale = !data?.fetchedAt || (Date.now() - (data.fetchedAt || 0) >= WEATHER_TTL_MS);
-    if (stale) fetchEnv();
-  }, [data, tzFromDevice]);
+    // Only fetch once per app reload (session). Use minimal cache otherwise.
+    const sessionFetched = sessionStorage.getItem(SESSION_KEY) === '1';
+    const disabledUntil = parseInt(localStorage.getItem('timepilot-env-net-disabled-until') || '0', 10);
+
+    if (sessionFetched || (disabledUntil && Date.now() < disabledUntil)) {
+      setLoading(false);
+      return;
+    }
+
+    fetchEnv().finally(() => {
+      try { sessionStorage.setItem(SESSION_KEY, '1'); } catch {}
+    });
+  }, []);
 
   useEffect(() => {
     const updateTime = () => {
