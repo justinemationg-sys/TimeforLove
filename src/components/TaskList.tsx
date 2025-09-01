@@ -73,6 +73,81 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onUpdateTask, onDeleteTask, 
   // Get today's date in YYYY-MM-DD format for min attribute
   const today = new Date().toISOString().split('T')[0];
 
+  // Calculate session-based total time and metadata (similar to TaskInput)
+  const calculateSessionBasedTime = () => {
+    if (!editFormData.startDate || !editFormData.deadline || estimationMode !== 'session') {
+      return { totalTime: 0, sessions: 0, frequency: '', feasible: true, warning: '' };
+    }
+
+    const startDate = new Date(editFormData.startDate);
+    const endDate = new Date(editFormData.deadline);
+    const timeDiff = endDate.getTime() - startDate.getTime();
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+    if (daysDiff <= 0) {
+      return { totalTime: 0, sessions: 0, frequency: 'Invalid date range', feasible: false, warning: 'Deadline must be after start date' };
+    }
+
+    const sessionDuration = (parseInt(sessionData.sessionHours) || 0) + (parseInt(sessionData.sessionMinutes) || 0) / 60;
+    if (sessionDuration <= 0) {
+      return { totalTime: 0, sessions: 0, frequency: '', feasible: true, warning: '' };
+    }
+
+    // Calculate work days in the range
+    let workDaysInRange = 0;
+    const currentDate = new Date(startDate);
+
+    while (currentDate <= endDate) {
+      const dayOfWeek = currentDate.getDay();
+      if (userSettings.workDays.includes(dayOfWeek)) {
+        workDaysInRange++;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    if (workDaysInRange === 0) {
+      return { totalTime: 0, sessions: 0, frequency: 'No work days', feasible: false, warning: 'No work days in the selected range' };
+    }
+
+    // Calculate sessions - default to daily
+    const numberOfSessions = workDaysInRange;
+    const frequency = 'Daily';
+
+    const totalTime = sessionDuration * numberOfSessions;
+
+    // Check feasibility
+    const dailyCapacity = userSettings.dailyAvailableHours;
+    const totalCapacity = workDaysInRange * dailyCapacity;
+    let feasible = true;
+    let warning = '';
+
+    if (sessionDuration > dailyCapacity) {
+      feasible = false;
+      warning = `Session duration (${sessionDuration.toFixed(1)}h) exceeds daily capacity (${dailyCapacity}h)`;
+    } else if (totalTime > totalCapacity * 0.8) {
+      feasible = false;
+      warning = `Total time (${totalTime.toFixed(1)}h) may exceed available capacity`;
+    }
+
+    return { totalTime, sessions: numberOfSessions, frequency, feasible, warning };
+  };
+
+  // Auto-update total time fields when session inputs change in session mode
+  React.useEffect(() => {
+    if (estimationMode === 'session') {
+      const calculation = calculateSessionBasedTime();
+      if (calculation.totalTime > 0) {
+        const hours = Math.floor(calculation.totalTime);
+        const minutes = Math.round((calculation.totalTime - hours) * 60);
+        setEditFormData(prev => ({
+          ...prev,
+          estimatedHours: hours,
+          estimatedMinutes: minutes
+        }));
+      }
+    }
+  }, [sessionData.sessionHours, sessionData.sessionMinutes, editFormData.startDate, editFormData.deadline, estimationMode, userSettings.workDays]);
+
   // Sorting function
   const sortTasks = (tasksToSort: Task[]) => {
     return [...tasksToSort].sort((a, b) => {
