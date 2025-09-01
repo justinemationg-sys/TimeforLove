@@ -140,9 +140,10 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
         onTimerUpdate(newTimer);
 
         // Check if timer completed while hidden (only trigger once and ensure we're still on the same task)
+        // Also ensure timer was actually running to prevent false completion
         if (actualTime <= 0) {
           if (onTimerComplete && !hasCompletedRef.current &&
-              timer.currentTaskId && timer.totalTime > 0) {
+              timer.currentTaskId && timer.totalTime > 0 && timer.isRunning && timer.startTime) {
             hasCompletedRef.current = true;
             onTimerComplete();
           }
