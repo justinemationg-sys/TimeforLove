@@ -161,6 +161,17 @@ const EnvironmentCard: React.FC = () => {
             }
           }
 
+          // If reverse geocoding failed entirely (both services blocked), set backoff and stop
+          if ((!city || !country)) {
+            localStorage.setItem('timepilot-env-net-disabled-until', String(Date.now() + 30 * 60 * 1000));
+            const minimal = { timezone: timezone || tzFromDevice, fetchedAt: Date.now() } as EnvData;
+            setData(minimal);
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify(minimal)); } catch {}
+            setError('Location lookup blocked');
+            setLoading(false);
+            return;
+          }
+
         }
 
         // Weather
