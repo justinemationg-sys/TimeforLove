@@ -29,6 +29,12 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onUpdateTask, onDeleteTask, 
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [showTimeEstimationModal, setShowTimeEstimationModal] = useState(false);
+  // Session-based estimation state for edit form
+  const [estimationMode, setEstimationMode] = useState<'total' | 'session'>('total');
+  const [sessionData, setSessionData] = useState({
+    sessionHours: '2',
+    sessionMinutes: '0'
+  });
 
   // Sorting state with localStorage persistence
   const [sortBy, setSortBy] = useState<'deadline' | 'startDate' | 'createdAt'>(() => {
