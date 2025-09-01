@@ -204,8 +204,9 @@ const EnvironmentCard: React.FC = () => {
       }
     };
 
-    // Only fetch if not already loaded from fresh cache
-    if (!data) fetchEnv();
+    // Fetch if no data or cached data is incomplete
+    const needsRefetch = !data || !data.city || !data.country || typeof data.temperatureC !== 'number';
+    if (needsRefetch) fetchEnv();
   }, [data, tzFromDevice]);
 
   useEffect(() => {
