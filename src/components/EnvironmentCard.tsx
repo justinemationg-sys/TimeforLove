@@ -54,6 +54,21 @@ function cToF(c?: number) {
   return c * 9 / 5 + 32;
 }
 
+async function safeFetch(url: string, opts?: RequestInit & { timeoutMs?: number }): Promise<any | null> {
+  try {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), opts?.timeoutMs ?? 8000);
+    const res = await fetch(url, { ...opts, signal: controller.signal, mode: 'cors', cache: 'no-store' });
+    clearTimeout(id);
+    if (!res.ok) return null;
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) return await res.json();
+    try { return await res.json(); } catch { return null; }
+  } catch {
+    return null;
+  }
+}
+
 async function getPosition(options?: PositionOptions): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) {
@@ -92,6 +107,14 @@ const EnvironmentCard: React.FC = () => {
         setLoading(true);
         setError(null);
 
+        // Respect temporary network-disable flag to avoid repeated console errors on blocked environments
+        const disabledUntil = parseInt(localStorage.getItem('timepilot-env-net-disabled-until') || '0', 10);
+        if (disabledUntil && Date.now() < disabledUntil) {
+          setData({ timezone: tzFromDevice, fetchedAt: Date.now() });
+          setLoading(false);
+          return;
+        }
+
         let lat: number | undefined;
         let lon: number | undefined;
         let city: string | undefined;
@@ -118,33 +141,25 @@ const EnvironmentCard: React.FC = () => {
         // Reverse geocode if city/country missing
         if (lat != null && lon != null && (!city || !country)) {
           // 1) Open-Meteo reverse geocoding
-          try {
-            const revRes = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=en`);
-            if (revRes.ok) {
-              const revJson = await revRes.json();
-              const top = revJson && revJson.results && revJson.results[0];
-              if (top) {
-                city = top.city || top.name || city;
-                region = top.admin1 || region;
-                country = top.country || country;
-                timezone = top.timezone || timezone;
-              }
-            }
-          } catch {}
+          const revJson = await safeFetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=en`, { timeoutMs: 7000 });
+          const top = revJson && revJson.results && revJson.results[0];
+          if (top) {
+            city = top.city || top.name || city;
+            region = top.admin1 || region;
+            country = top.country || country;
+            timezone = top.timezone || timezone;
+          }
 
           // 2) Nominatim fallback if still missing
           if (!city || !country) {
-            try {
-              const nomRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
-              if (nomRes.ok) {
-                const nom = await nomRes.json();
-                const addr = nom && nom.address ? nom.address : {};
-                const disp: string | undefined = nom && nom.display_name;
-                city = city || addr.city || addr.town || addr.village || addr.municipality || (disp ? disp.split(',')[0] : undefined);
-                region = region || addr.state || addr.region || addr.county;
-                country = country || addr.country;
-              }
-            } catch {}
+            const nom = await safeFetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`, { timeoutMs: 7000, headers: { 'Accept': 'application/json' } });
+            if (nom) {
+              const addr = nom.address ? nom.address : {};
+              const disp: string | undefined = nom.display_name;
+              city = city || addr.city || addr.town || addr.village || addr.municipality || (disp ? disp.split(',')[0] : undefined);
+              region = region || addr.state || addr.region || addr.county;
+              country = country || addr.country;
+            }
           }
 
         }
@@ -154,15 +169,15 @@ const EnvironmentCard: React.FC = () => {
         let weatherCode: number | undefined;
         let windSpeed: number | undefined;
         if (lat != null && lon != null) {
-          const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`);
-          if (wRes.ok) {
-            const wJson = await wRes.json();
-            if (wJson && wJson.current_weather) {
-              temperatureC = typeof wJson.current_weather.temperature === 'number' ? wJson.current_weather.temperature : undefined;
-              weatherCode = wJson.current_weather.weathercode;
-              windSpeed = wJson.current_weather.windspeed;
-              timezone = wJson.timezone || timezone;
-            }
+          const wJson = await safeFetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`, { timeoutMs: 7000 });
+          if (!wJson) {
+            // Network blocked; avoid repeated attempts for 30 minutes
+            localStorage.setItem('timepilot-env-net-disabled-until', String(Date.now() + 30 * 60 * 1000));
+          } else if (wJson.current_weather) {
+            temperatureC = typeof wJson.current_weather.temperature === 'number' ? wJson.current_weather.temperature : undefined;
+            weatherCode = wJson.current_weather.weathercode;
+            windSpeed = wJson.current_weather.windspeed;
+            timezone = wJson.timezone || timezone;
           }
         }
 
@@ -183,6 +198,8 @@ const EnvironmentCard: React.FC = () => {
         localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
         setLoading(false);
       } catch (e: any) {
+        // Set backoff to reduce repeated fetch attempts when environment blocks cross-origin requests
+        localStorage.setItem('timepilot-env-net-disabled-until', String(Date.now() + 30 * 60 * 1000));
         setError('Unable to fetch location/weather');
         setLoading(false);
       }
