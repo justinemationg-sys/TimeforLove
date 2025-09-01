@@ -1637,25 +1637,56 @@ function App() {
     };
 
     // Update handleTimerComplete to set readyToMarkDone for the last-timed session
-    // Timer control functions using robust timer helpers
+    // Timer control functions using robust timer helpers with debouncing
+    const timerControlsRef = useRef({ isProcessing: false });
+
     const handleTimerStart = () => {
+        if (timerControlsRef.current.isProcessing) return;
+        timerControlsRef.current.isProcessing = true;
+
         setGlobalTimer(prev => {
-            if (prev.isRunning) return prev; // Already running
-            return prev.startTime ? resumeTimer(prev) : startTimer(prev);
+            if (prev.isRunning) {
+                timerControlsRef.current.isProcessing = false;
+                return prev; // Already running
+            }
+            const newTimer = prev.startTime ? resumeTimer(prev) : startTimer(prev);
+            setTimeout(() => { timerControlsRef.current.isProcessing = false; }, 100);
+            return newTimer;
         });
     };
 
     const handleTimerPause = () => {
-        setGlobalTimer(prev => pauseTimer(prev));
+        if (timerControlsRef.current.isProcessing) return;
+        timerControlsRef.current.isProcessing = true;
+
+        setGlobalTimer(prev => {
+            const newTimer = pauseTimer(prev);
+            setTimeout(() => { timerControlsRef.current.isProcessing = false; }, 100);
+            return newTimer;
+        });
     };
 
     const handleTimerStop = () => {
+        if (timerControlsRef.current.isProcessing) return;
+        timerControlsRef.current.isProcessing = true;
+
         // Just stop the timer without marking session as done
-        setGlobalTimer(prev => pauseTimer(prev));
+        setGlobalTimer(prev => {
+            const newTimer = pauseTimer(prev);
+            setTimeout(() => { timerControlsRef.current.isProcessing = false; }, 100);
+            return newTimer;
+        });
     };
 
     const handleTimerReset = () => {
-        setGlobalTimer(prev => resetTimer(prev));
+        if (timerControlsRef.current.isProcessing) return;
+        timerControlsRef.current.isProcessing = true;
+
+        setGlobalTimer(prev => {
+            const newTimer = resetTimer(prev);
+            setTimeout(() => { timerControlsRef.current.isProcessing = false; }, 100);
+            return newTimer;
+        });
     };
 
     // Speed up timer for testing purposes
@@ -3273,7 +3304,7 @@ function App() {
                                             {[
                                                 { amount: '50', emoji: '☕', desc: 'Coffee' },
                                                 { amount: '100', emoji: '🍕', desc: 'Pizza' },
-                                                { amount: '200', emoji: '🎉', desc: 'Party' }
+                                                { amount: '200', emoji: '���', desc: 'Party' }
                                             ].map((item, index) => (
                                                 <div
                                                     key={index}
