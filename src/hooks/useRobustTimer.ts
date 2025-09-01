@@ -60,8 +60,9 @@ export const useRobustTimer = ({ timer, onTimerUpdate, onTimerComplete, taskTitl
       onTimerUpdate(newTimer);
 
       // Check if timer completed (only trigger once and ensure we're still on the same task)
+      // Also ensure timer was actually running to prevent false completion on state changes
       if (actualTime <= 0 && onTimerComplete && !hasCompletedRef.current &&
-          timer.currentTaskId && timer.totalTime > 0) {
+          timer.currentTaskId && timer.totalTime > 0 && timer.isRunning && timer.startTime) {
         hasCompletedRef.current = true;
         // Show notification and play alert if tab is hidden
         if (document.hidden && taskTitle) {
