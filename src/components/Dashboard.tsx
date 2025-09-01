@@ -11,16 +11,16 @@ interface DashboardProps {
   studyPlans: StudyPlan[];
   dailyAvailableHours: number;
   workDays: number[];
-  // lastTimedSession: { planDate: string; sessionNumber: number } | null; // removed
-  // readyToMarkDone: { planDate: string; sessionNumber: number } | null; // keep if used
-  // onMarkSessionDone: (planDate: string, sessionNumber: number) => void; // removed
-  // onUndoSessionDone: (planDate: string, taskId: string, sessionNumber: number) => void; // removed
   onSelectTask: (task: Task, session?: { allocatedHours: number; planDate?: string; sessionNumber?: number }) => void;
-  onGenerateStudyPlan?: () => void; // Add regenerate handler
+  onGenerateStudyPlan?: () => void;
   hasCompletedTutorial?: boolean;
+  habits: Habit[];
+  onAddHabit: (habit: { title: string; cadence: 'daily' | 'weekly'; targetPerWeek?: number; reminder?: boolean }) => void;
+  onToggleHabitToday: (id: string) => void;
+  onDeleteHabit: (id: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ tasks, studyPlans, dailyAvailableHours, workDays, onSelectTask, onGenerateStudyPlan }) => {
+const Dashboard: React.FC<DashboardProps> = ({ tasks, studyPlans, dailyAvailableHours, workDays, onSelectTask, onGenerateStudyPlan, habits, onAddHabit, onToggleHabitToday, onDeleteHabit }) => {
   const [showRegeneratePrompt, setShowRegeneratePrompt] = useState(true);
   const [analyticsFilter, setAnalyticsFilter] = useState<'all' | 'week' | 'month' | 'custom'>('all');
   const [customStart, setCustomStart] = useState('');
